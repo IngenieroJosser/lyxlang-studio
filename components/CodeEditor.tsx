@@ -37,71 +37,12 @@ interface FileNode {
   path?: string;
 }
 
-// Componente para el resaltado de sintaxis
+// Componente simple sin resaltado de sintaxis
 const CodeHighlighter = ({ code, language }: { code: string; language: string }) => {
-  const highlightSyntax = (text: string) => {
-    const keywords = [
-      'class', 'interface', 'extends', 'implements', 'constructor', 'public', 'private',
-      'protected', 'readonly', 'static', 'async', 'await', 'function', 'return', 'const',
-      'let', 'var', 'if', 'else', 'for', 'while', 'switch', 'case', 'break', 'continue',
-      'try', 'catch', 'throw', 'import', 'export', 'from', 'default', 'type', 'namespace',
-      'declare', 'any', 'string', 'number', 'boolean', 'void', 'null', 'undefined', 'this'
-    ];
-
-    const patterns = {
-      comment: /(\/\/.*$|\/\*[\s\S]*?\*\/)/gm,
-      string: /(['"`](?:\\.|[^\\])*?['"`])/g,
-      number: /\b(\d+(\.\d+)?)\b/g,
-      keyword: new RegExp(`\\b(${keywords.join('|')})\\b`, 'g'),
-      function: /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
-      type: /:\s*([a-zA-Z_$][a-zA-Z0-9_$]*)/g,
-      decorator: /@([a-zA-Z_$][a-zA-Z0-9_$]*)/g
-    };
-
-    let highlighted = text;
-
-    highlighted = highlighted.replace(
-      patterns.comment,
-      '<span class="text-[#6B7280] italic">$1</span>'
-    );
-
-    highlighted = highlighted.replace(
-      patterns.string,
-      '<span class="text-[#E9B44C] font-medium">$1</span>'
-    );
-
-    highlighted = highlighted.replace(
-      patterns.number,
-      '<span class="text-[#C792EA]">$1</span>'
-    );
-
-    highlighted = highlighted.replace(
-      patterns.keyword,
-      '<span class="text-[#82AAFF] font-semibold">$1</span>'
-    );
-
-    highlighted = highlighted.replace(
-      patterns.function,
-      '<span class="text-[#7FDBCA] font-medium">$1</span>('
-    );
-
-    highlighted = highlighted.replace(
-      patterns.type,
-      ': <span class="text-[#A5D6FF] font-medium">$1</span>'
-    );
-
-    highlighted = highlighted.replace(
-      patterns.decorator,
-      '<span class="text-[#F78C6C] italic">@$1</span>'
-    );
-
-    return highlighted;
-  };
-
   return (
-    <pre className="text-sm leading-6 whitespace-pre" dangerouslySetInnerHTML={{
-      __html: highlightSyntax(code)
-    }} />
+    <pre className="text-sm leading-6 whitespace-pre text-gray-100 font-mono">
+      {code}
+    </pre>
   );
 };
 
@@ -168,13 +109,13 @@ const AdvancedCodeEditor = () => {
               id: '3',
               name: 'main.ts',
               type: 'file',
-              content: `// Escribe tu código TypeScript aquí\n\nclass HolaMundo {\n  constructor(public mensaje: string) {}\n\n  saludar(): void {\n    console.log(this.mensaje);\n  }\n}\n\nconst instancia = new HolaMundo("¡Hola desde LyxLang!");\ninstancia.saludar();`
+              content: '' // Archivo vacío
             },
             {
               id: '4',
               name: 'utils.ts',
               type: 'file',
-              content: `// Utilidades del proyecto\nexport function formatearFecha(fecha: Date): string {\n  return fecha.toLocaleDateString('es-ES');\n}\n\nexport function generarId(): string {\n  return Math.random().toString(36).substr(2, 9);\n}`
+              content: '' // Archivo vacío
             }
           ]
         },
@@ -182,14 +123,14 @@ const AdvancedCodeEditor = () => {
           id: '5',
           name: 'package.json',
           type: 'file',
-          content: `{\n  "name": "mi-proyecto-ts",\n  "version": "1.0.0",\n  "description": "Un proyecto increíble con TypeScript",\n  "main": "dist/main.js",\n  "scripts": {\n    "build": "tsc",\n    "dev": "ts-node src/main.ts",\n    "start": "node dist/main.js"\n  },\n  "dependencies": {\n    "typescript": "^5.0.0"\n  }\n}`
+          content: '' // Archivo vacío
         }
       ]
     }
   ]);
 
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState<string>('');
   const [currentPath, setCurrentPath] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [darkMode, setDarkMode] = useState(true);
@@ -282,7 +223,7 @@ const AdvancedCodeEditor = () => {
     };
   }, [isResizing]);
 
-  // Sincronizar scroll - UN SOLO SCROLL
+  // Sincronizar scroll
   useEffect(() => {
     const handleScroll = () => {
       if (scrollContainerRef.current) {
@@ -291,7 +232,6 @@ const AdvancedCodeEditor = () => {
         setScrollTop(newScrollTop);
         setScrollLeft(newScrollLeft);
         
-        // Solo el textarea sigue el scroll (para el cursor)
         if (textareaRef.current) {
           textareaRef.current.scrollTop = newScrollTop;
           textareaRef.current.scrollLeft = newScrollLeft;
@@ -310,7 +250,6 @@ const AdvancedCodeEditor = () => {
     if (selectedFile) {
       setCode(selectedFile.content || '');
       setCurrentPath(selectedFile.path || '');
-      // Reset scroll cuando cambia de archivo
       setScrollTop(0);
       setScrollLeft(0);
       if (scrollContainerRef.current) {
@@ -320,7 +259,7 @@ const AdvancedCodeEditor = () => {
     }
   }, [selectedFile]);
 
-  // Función para manejar la indentación con Tab y otras teclas
+  // Función para manejar la indentación con Tab
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -330,7 +269,6 @@ const AdvancedCodeEditor = () => {
       const newValue = code.substring(0, start) + '  ' + code.substring(end);
       setCode(newValue);
 
-      // Restaurar la posición del cursor después de la actualización
       setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.selectionStart = start + 2;
@@ -392,7 +330,7 @@ const AdvancedCodeEditor = () => {
       id: Date.now().toString(),
       name: type === 'file' ? 'nuevo_archivo.ts' : 'nueva_carpeta',
       type,
-      content: type === 'file' ? '// Escribe tu código aquí' : '',
+      content: '', // Siempre archivos vacíos
       children: type === 'folder' ? [] : undefined,
       isOpen: true
     };
@@ -812,7 +750,7 @@ const AdvancedCodeEditor = () => {
           </div>
         </div>
 
-        {/* Editor de Código - Contenedor principal con altura fija */}
+        {/* Editor de Código */}
         <div className="flex-1 flex min-h-0 bg-gradient-to-br from-gray-900 to-gray-800/80 p-2 lg:p-4">
           {selectedFile ? (
             <div className="flex-1 flex bg-gray-900 rounded-xl border border-gray-700 shadow-2xl overflow-hidden">
@@ -837,9 +775,9 @@ const AdvancedCodeEditor = () => {
                   </div>
                 </div>
 
-                {/* Área del editor con números de línea - UN SOLO SCROLL */}
+                {/* Área del editor con números de línea */}
                 <div className="flex-1 flex min-h-0 bg-gray-900 relative" ref={editorContainerRef}>
-                  {/* Números de línea - FIJOS, sin scroll */}
+                  {/* Números de línea */}
                   <div 
                     className="bg-gray-800/30 text-gray-500 text-right py-4 px-2 lg:px-3 font-mono text-xs select-none border-r border-gray-700 flex-shrink-0"
                     style={{ minWidth: '60px' }}
@@ -854,18 +792,18 @@ const AdvancedCodeEditor = () => {
                     ))}
                   </div>
 
-                  {/* CONTENEDOR PRINCIPAL CON SCROLL ÚNICO */}
+                  {/* Contenedor principal con scroll */}
                   <div 
                     ref={scrollContainerRef}
                     className="flex-1 flex relative overflow-auto min-w-0"
                   >
-                    {/* Textarea del código (invisible para capturar entrada) */}
+                    {/* Textarea del código (COMPLETAMENTE TRANSPARENTE) */}
                     <textarea
                       ref={textareaRef}
                       value={code}
                       onChange={handleCodeChange}
                       onKeyDown={handleKeyDown}
-                      className="w-full h-full min-h-full bg-transparent text-transparent caret-white font-mono text-sm p-3 lg:p-4 focus:outline-none resize-none leading-6 tracking-wide absolute inset-0 z-10 whitespace-pre"
+                      className="w-full h-full min-h-full bg-transparent text-transparent font-mono text-sm p-3 lg:p-4 focus:outline-none resize-none leading-6 tracking-wide absolute inset-0 z-10 whitespace-pre caret-white"
                       placeholder="// Escribe tu código TypeScript aquí..."
                       spellCheck="false"
                       style={{
@@ -873,9 +811,9 @@ const AdvancedCodeEditor = () => {
                       }}
                     />
 
-                    {/* Código con resaltado de sintaxis (SOLO VISUAL) */}
+                    {/* Código sin resaltado (SOLO ESTE SE VE) */}
                     <div 
-                      className="w-full h-full min-h-full py-4 px-3 lg:px-4 font-mono text-sm leading-6 tracking-wide whitespace-pre pointer-events-none absolute inset-0"
+                      className="w-full h-full min-h-full py-4 px-3 lg:px-4 font-mono text-sm leading-6 tracking-wide whitespace-pre pointer-events-none absolute inset-0 text-gray-100"
                     >
                       <CodeHighlighter code={code} language="typescript" />
                     </div>
