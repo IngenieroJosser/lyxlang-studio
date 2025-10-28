@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { FiHome, FiArrowLeft, FiSearch, FiFile, FiFolder, FiCode, FiGithub } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import Link from 'next/link';
+import Link from 'next/link'
 
 const NotFoundPage = () => {
   const router = useRouter();
