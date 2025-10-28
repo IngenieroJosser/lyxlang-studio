@@ -139,7 +139,7 @@ const HomePage = () => {
             <nav className="hidden md:flex items-center space-x-8">
               <a href="#features" className="text-gray-400 hover:text-white transition-colors">Características</a>
               <a href="#about" className="text-gray-400 hover:text-white transition-colors">Acerca de</a>
-              <a href="#github" className="text-gray-400 hover:text-white transition-colors">GitHub</a>
+              <a href="https://github.com/IngenieroJosser/lyxlang-studio" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-white transition-colors">GitHub</a>
             </nav>
 
             <div className="flex items-center space-x-4">
@@ -186,10 +186,10 @@ const HomePage = () => {
                 <FiArrowRight className="group-hover:translate-x-1 transition-transform" size={20} />
               </button>
 
-              <button className="group bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 flex items-center space-x-3">
+              <a href="https://github.com/IngenieroJosser/lyxlang-studio" target="_blank" rel="noopener noreferrer" className="group bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 flex items-center space-x-3">
                 <FiGithub size={20} />
                 <span>Ver en GitHub</span>
-              </button>
+              </a>
             </div>
           </div>
         </div>
