@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { FiHome, FiArrowLeft, FiSearch, FiFile, FiFolder, FiCode, FiGithub } from 'react-icons/fi';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link'
 
 const NotFoundPage = () => {
   const router = useRouter();
@@ -144,7 +145,8 @@ const NotFoundPage = () => {
 
           {/* Botones de acción */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-            <button
+            <Link
+              href="/"
               onClick={() => router.back()}
               onMouseEnter={() => setIsHovered(true)}
               onMouseLeave={() => setIsHovered(false)}
@@ -152,7 +154,7 @@ const NotFoundPage = () => {
             >
               <FiArrowLeft className="group-hover:-translate-x-1 transition-transform" size={18} />
               <span>Volver Atrás</span>
-            </button>
+            </Link>
 
             <button
               onClick={() => router.push('/')}
