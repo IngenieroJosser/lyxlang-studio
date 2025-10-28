@@ -37,6 +37,117 @@ interface FileNode {
   path?: string;
 }
 
+// Componente para el resaltado de sintaxis
+const CodeHighlighter = ({ code, language }: { code: string; language: string }) => {
+  const highlightSyntax = (text: string) => {
+    const keywords = [
+      'class', 'interface', 'extends', 'implements', 'constructor', 'public', 'private',
+      'protected', 'readonly', 'static', 'async', 'await', 'function', 'return', 'const',
+      'let', 'var', 'if', 'else', 'for', 'while', 'switch', 'case', 'break', 'continue',
+      'try', 'catch', 'throw', 'import', 'export', 'from', 'default', 'type', 'namespace',
+      'declare', 'any', 'string', 'number', 'boolean', 'void', 'null', 'undefined', 'this'
+    ];
+
+    const patterns = {
+      comment: /(\/\/.*$|\/\*[\s\S]*?\*\/)/gm,
+      string: /(['"`](?:\\.|[^\\])*?['"`])/g,
+      number: /\b(\d+(\.\d+)?)\b/g,
+      keyword: new RegExp(`\\b(${keywords.join('|')})\\b`, 'g'),
+      function: /\b([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/g,
+      type: /:\s*([a-zA-Z_$][a-zA-Z0-9_$]*)/g,
+      decorator: /@([a-zA-Z_$][a-zA-Z0-9_$]*)/g
+    };
+
+    let highlighted = text;
+
+    highlighted = highlighted.replace(
+      patterns.comment,
+      '<span class="text-[#6B7280] italic">$1</span>'
+    );
+
+    highlighted = highlighted.replace(
+      patterns.string,
+      '<span class="text-[#E9B44C] font-medium">$1</span>'
+    );
+
+    highlighted = highlighted.replace(
+      patterns.number,
+      '<span class="text-[#C792EA]">$1</span>'
+    );
+
+    highlighted = highlighted.replace(
+      patterns.keyword,
+      '<span class="text-[#82AAFF] font-semibold">$1</span>'
+    );
+
+    highlighted = highlighted.replace(
+      patterns.function,
+      '<span class="text-[#7FDBCA] font-medium">$1</span>('
+    );
+
+    highlighted = highlighted.replace(
+      patterns.type,
+      ': <span class="text-[#A5D6FF] font-medium">$1</span>'
+    );
+
+    highlighted = highlighted.replace(
+      patterns.decorator,
+      '<span class="text-[#F78C6C] italic">@$1</span>'
+    );
+
+    return highlighted;
+  };
+
+  return (
+    <pre className="text-sm leading-6 whitespace-pre" dangerouslySetInnerHTML={{
+      __html: highlightSyntax(code)
+    }} />
+  );
+};
+
+// Componente para el minimap
+const CodeMinimap = ({ code, scrollTop, scrollLeft, onScrollClick }: { 
+  code: string; 
+  scrollTop: number; 
+  scrollLeft: number;
+  onScrollClick: (percentageX: number, percentageY: number) => void 
+}) => {
+  const minimapRef = useRef<HTMLDivElement>(null);
+  
+  const handleClick = (e: React.MouseEvent) => {
+    if (!minimapRef.current) return;
+    
+    const rect = minimapRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const clickY = e.clientY - rect.top;
+    const percentageX = clickX / rect.width;
+    const percentageY = clickY / rect.height;
+    onScrollClick(percentageX, percentageY);
+  };
+
+  return (
+    <div 
+      ref={minimapRef}
+      className="w-full h-full bg-gray-800/30 overflow-hidden cursor-pointer relative border-l border-gray-600"
+      onClick={handleClick}
+    >
+      <div className="absolute inset-0 font-mono text-[2px] leading-[1px] text-gray-400 whitespace-pre">
+        {code}
+      </div>
+      {/* Indicador de área visible */}
+      <div 
+        className="absolute bg-blue-500/30 border border-blue-400/50 transition-all duration-100"
+        style={{
+          top: `${(scrollTop / (minimapRef.current?.scrollHeight || 1)) * 100}%`,
+          left: `${(scrollLeft / (minimapRef.current?.scrollWidth || 1)) * 100}%`,
+          width: '100%',
+          height: '30%'
+        }}
+      />
+    </div>
+  );
+};
+
 const AdvancedCodeEditor = () => {
   const [files, setFiles] = useState<FileNode[]>([
     {
@@ -57,50 +168,13 @@ const AdvancedCodeEditor = () => {
               id: '3',
               name: 'main.ts',
               type: 'file',
-              content: `// Bienvenido a tu compilador TypeScript
-interface Usuario {
-  id: number;
-  nombre: string;
-  email: string;
-}
-
-class GestorUsuarios {
-  private usuarios: Usuario[] = [];
-
-  agregarUsuario(usuario: Usuario): void {
-    this.usuarios.push(usuario);
-    console.log(\`Usuario \${usuario.nombre} agregado correctamente\`);
-  }
-
-  listarUsuarios(): void {
-    this.usuarios.forEach(usuario => {
-      console.log(\`ID: \${usuario.id}, Nombre: \${usuario.nombre}\`);
-    });
-  }
-}
-
-// Ejemplo de uso
-const gestor = new GestorUsuarios();
-gestor.agregarUsuario({ id: 1, nombre: "Ana", email: "ana@ejemplo.com" });
-gestor.listarUsuarios();`
+              content: `// Escribe tu código TypeScript aquí\n\nclass HolaMundo {\n  constructor(public mensaje: string) {}\n\n  saludar(): void {\n    console.log(this.mensaje);\n  }\n}\n\nconst instancia = new HolaMundo("¡Hola desde LyxLang!");\ninstancia.saludar();`
             },
             {
               id: '4',
               name: 'utils.ts',
               type: 'file',
-              content: `// Utilidades del proyecto
-export function formatearFecha(fecha: Date): string {
-  return fecha.toLocaleDateString('es-ES');
-}
-
-export function generarId(): string {
-  return Math.random().toString(36).substr(2, 9);
-}
-
-export const CONSTANTES = {
-  VERSION: '1.0.0',
-  AUTOR: 'Tu Nombre'
-};`
+              content: `// Utilidades del proyecto\nexport function formatearFecha(fecha: Date): string {\n  return fecha.toLocaleDateString('es-ES');\n}\n\nexport function generarId(): string {\n  return Math.random().toString(36).substr(2, 9);\n}`
             }
           ]
         },
@@ -108,20 +182,7 @@ export const CONSTANTES = {
           id: '5',
           name: 'package.json',
           type: 'file',
-          content: `{
-  "name": "mi-proyecto-ts",
-  "version": "1.0.0",
-  "description": "Un proyecto increíble con TypeScript",
-  "main": "dist/main.js",
-  "scripts": {
-    "build": "tsc",
-    "dev": "ts-node src/main.ts",
-    "start": "node dist/main.js"
-  },
-  "dependencies": {
-    "typescript": "^5.0.0"
-  }
-}`
+          content: `{\n  "name": "mi-proyecto-ts",\n  "version": "1.0.0",\n  "description": "Un proyecto increíble con TypeScript",\n  "main": "dist/main.js",\n  "scripts": {\n    "build": "tsc",\n    "dev": "ts-node src/main.ts",\n    "start": "node dist/main.js"\n  },\n  "dependencies": {\n    "typescript": "^5.0.0"\n  }\n}`
         }
       ]
     }
@@ -130,17 +191,26 @@ export const CONSTANTES = {
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
   const [code, setCode] = useState('');
   const [currentPath, setCurrentPath] = useState('');
-  const [isCreating, setIsCreating] = useState(false);
-  const [createType, setCreateType] = useState<'file' | 'folder'>('file');
-  const [isRenaming, setIsRenaming] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [darkMode, setDarkMode] = useState(true);
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [terminalOutput, setTerminalOutput] = useState<string[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
+  const [globalSearchTerm, setGlobalSearchTerm] = useState('');
+  const [terminalHeight, setTerminalHeight] = useState(300);
+  const [isResizing, setIsResizing] = useState(false);
+  const [isRenaming, setIsRenaming] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [scrollTop, setScrollTop] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const globalSearchRef = useRef<HTMLInputElement>(null);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Detectar cambios en el tamaño de la pantalla
   useEffect(() => {
@@ -158,14 +228,99 @@ export const CONSTANTES = {
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
 
+  // Efecto para los atajos de teclado
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 't') {
+        e.preventDefault();
+        setShowGlobalSearch(true);
+        setTimeout(() => globalSearchRef.current?.focus(), 100);
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault();
+        setSidebarOpen(prev => !prev);
+      }
+
+      if (e.key === 'Escape' && showGlobalSearch) {
+        setShowGlobalSearch(false);
+      }
+
+      // Guardar con Ctrl+S
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveFile();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showGlobalSearch, selectedFile, code]);
+
+  // Efecto para el redimensionamiento de la terminal
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const newHeight = window.innerHeight - e.clientY;
+      if (newHeight > 100 && newHeight < window.innerHeight - 200) {
+        setTerminalHeight(newHeight);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
+
+  // Sincronizar scroll - UN SOLO SCROLL
+  useEffect(() => {
+    const handleScroll = () => {
+      if (scrollContainerRef.current) {
+        const newScrollTop = scrollContainerRef.current.scrollTop;
+        const newScrollLeft = scrollContainerRef.current.scrollLeft;
+        setScrollTop(newScrollTop);
+        setScrollLeft(newScrollLeft);
+        
+        // Solo el textarea sigue el scroll (para el cursor)
+        if (textareaRef.current) {
+          textareaRef.current.scrollTop = newScrollTop;
+          textareaRef.current.scrollLeft = newScrollLeft;
+        }
+      }
+    };
+
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', handleScroll);
+      return () => scrollContainer.removeEventListener('scroll', handleScroll);
+    }
+  }, [selectedFile]);
+
   useEffect(() => {
     if (selectedFile) {
       setCode(selectedFile.content || '');
       setCurrentPath(selectedFile.path || '');
+      // Reset scroll cuando cambia de archivo
+      setScrollTop(0);
+      setScrollLeft(0);
+      if (scrollContainerRef.current) {
+        scrollContainerRef.current.scrollTop = 0;
+        scrollContainerRef.current.scrollLeft = 0;
+      }
     }
   }, [selectedFile]);
 
-  // Función para manejar la indentación con Tab
+  // Función para manejar la indentación con Tab y otras teclas
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
       e.preventDefault();
@@ -175,13 +330,34 @@ export const CONSTANTES = {
       const newValue = code.substring(0, start) + '  ' + code.substring(end);
       setCode(newValue);
 
-      // Restaurar la posición del cursor
+      // Restaurar la posición del cursor después de la actualización
       setTimeout(() => {
         if (textareaRef.current) {
           textareaRef.current.selectionStart = start + 2;
           textareaRef.current.selectionEnd = start + 2;
         }
       }, 0);
+    }
+  };
+
+  // Manejar cambios en el textarea
+  const handleCodeChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setCode(e.target.value);
+  };
+
+  // Manejar clic en el minimap para navegación
+  const handleMinimapScroll = (percentageX: number, percentageY: number) => {
+    if (scrollContainerRef.current) {
+      const maxScrollTop = scrollContainerRef.current.scrollHeight - scrollContainerRef.current.clientHeight;
+      const maxScrollLeft = scrollContainerRef.current.scrollWidth - scrollContainerRef.current.clientWidth;
+      
+      const newScrollTop = maxScrollTop * percentageY;
+      const newScrollLeft = maxScrollLeft * percentageX;
+      
+      scrollContainerRef.current.scrollTop = newScrollTop;
+      scrollContainerRef.current.scrollLeft = newScrollLeft;
+      setScrollTop(newScrollTop);
+      setScrollLeft(newScrollLeft);
     }
   };
 
@@ -203,7 +379,6 @@ export const CONSTANTES = {
   const handleFileSelect = (file: FileNode) => {
     if (file.type === 'file') {
       setSelectedFile(file);
-      // Cerrar sidebar en móvil al seleccionar archivo
       if (isMobile) {
         setSidebarOpen(false);
       }
@@ -240,7 +415,6 @@ export const CONSTANTES = {
     };
 
     setFiles(addNode(files));
-    setIsCreating(false);
 
     if (type === 'file') {
       setTimeout(() => {
@@ -354,8 +528,8 @@ export const CONSTANTES = {
       <div key={node.id} className="select-none group">
         <div
           className={`flex items-center px-3 py-2 hover:bg-blue-500/10 cursor-pointer transition-all duration-200 rounded-lg mx-2 border-l-2 ${selectedFile?.id === node.id
-              ? 'bg-blue-500/20 border-blue-400'
-              : 'border-transparent hover:border-blue-400/30'
+            ? 'bg-blue-500/20 border-blue-400'
+            : 'border-transparent hover:border-blue-400/30'
             }`}
           style={{ paddingLeft: `${level * 16 + 12}px` }}
         >
@@ -438,9 +612,44 @@ export const CONSTANTES = {
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white overflow-hidden">
+      {/* Buscador Global */}
+      {showGlobalSearch && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-start justify-center pt-20">
+          <div className="bg-gray-800 rounded-xl border border-gray-600 shadow-2xl w-full max-w-2xl mx-4">
+            <div className="p-4 border-b border-gray-700">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-lg font-semibold text-white">Buscar en el proyecto</h3>
+                <button
+                  onClick={() => setShowGlobalSearch(false)}
+                  className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <FiX size={20} />
+                </button>
+              </div>
+              <div className="relative">
+                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+                <input
+                  ref={globalSearchRef}
+                  type="text"
+                  placeholder="Buscar archivos o contenido... (Presiona ESC para cerrar)"
+                  value={globalSearchTerm}
+                  onChange={(e) => setGlobalSearchTerm(e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-600 rounded-xl pl-12 pr-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/30 transition-colors"
+                />
+              </div>
+            </div>
+            <div className="p-4 max-h-96 overflow-y-auto">
+              <div className="text-gray-400 text-sm">
+                Resultados de búsqueda aparecerán aquí...
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Overlay para móvil */}
       {sidebarOpen && isMobile && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
@@ -546,9 +755,9 @@ export const CONSTANTES = {
       </div>
 
       {/* Área Principal */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 h-full">
         {/* Header del Editor */}
-        <div className="bg-gray-800/80 backdrop-blur-lg border-b border-gray-700 px-4 lg:px-6 py-3">
+        <div className="bg-gray-800/80 backdrop-blur-lg border-b border-gray-700 px-4 lg:px-6 py-3 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 lg:space-x-4">
               {/* Botón menú móvil */}
@@ -563,7 +772,7 @@ export const CONSTANTES = {
                 <FiHome className="mr-2 flex-shrink-0" size={14} />
                 <span className="font-mono text-xs truncate">{currentPath || '/proyecto'}</span>
               </div>
-              
+
               {selectedFile && (
                 <div className="hidden sm:flex items-center space-x-2 px-3 py-1 bg-blue-500/20 rounded-lg border border-blue-500/30">
                   <FiFile className="text-blue-400 flex-shrink-0" size={14} />
@@ -589,6 +798,13 @@ export const CONSTANTES = {
               >
                 <FiTerminal size={16} />
               </button>
+              <button
+                onClick={() => setShowGlobalSearch(true)}
+                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                title="Buscar (Ctrl+T)"
+              >
+                <FiSearch size={16} />
+              </button>
               <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors hidden lg:block">
                 <FiSettings size={16} />
               </button>
@@ -596,56 +812,90 @@ export const CONSTANTES = {
           </div>
         </div>
 
-        {/* Editor de Código */}
-        <div className="flex-1 flex bg-gradient-to-br from-gray-900 to-gray-800/80 p-2 lg:p-4">
+        {/* Editor de Código - Contenedor principal con altura fija */}
+        <div className="flex-1 flex min-h-0 bg-gradient-to-br from-gray-900 to-gray-800/80 p-2 lg:p-4">
           {selectedFile ? (
-            <div className="flex-1 flex flex-col bg-gray-900 rounded-xl border border-gray-700 shadow-2xl overflow-hidden">
-              {/* Header del archivo */}
-              <div className="bg-gray-800/50 px-3 lg:px-4 py-2 border-b border-gray-700">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 overflow-hidden">
-                    <div className="flex items-center space-x-2 min-w-0">
-                      <FiFile className="text-blue-400 flex-shrink-0" size={16} />
-                      <span className="font-mono text-sm font-medium truncate">{selectedFile.name}</span>
+            <div className="flex-1 flex bg-gray-900 rounded-xl border border-gray-700 shadow-2xl overflow-hidden">
+              {/* Editor principal */}
+              <div className="flex-1 flex flex-col min-w-0">
+                {/* Header del archivo */}
+                <div className="bg-gray-800/50 px-3 lg:px-4 py-2 border-b border-gray-700 flex-shrink-0">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2 overflow-hidden">
+                      <div className="flex items-center space-x-2 min-w-0">
+                        <FiFile className="text-blue-400 flex-shrink-0" size={16} />
+                        <span className="font-mono text-sm font-medium truncate">{selectedFile.name}</span>
+                      </div>
+                      <div className="flex items-center space-x-1 text-xs flex-shrink-0">
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <span className="text-gray-400 hidden sm:inline">Guardado</span>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-1 text-xs flex-shrink-0">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                      <span className="text-gray-400 hidden sm:inline">Guardado</span>
+                    <div className="text-xs text-gray-400 bg-gray-700/50 px-2 py-1 rounded hidden sm:block">
+                      {code.split('\n').length} líneas • TypeScript
                     </div>
                   </div>
-                  <div className="text-xs text-gray-400 bg-gray-700/50 px-2 py-1 rounded hidden sm:block">
-                    {code.split('\n').length} líneas • TypeScript
+                </div>
+
+                {/* Área del editor con números de línea - UN SOLO SCROLL */}
+                <div className="flex-1 flex min-h-0 bg-gray-900 relative" ref={editorContainerRef}>
+                  {/* Números de línea - FIJOS, sin scroll */}
+                  <div 
+                    className="bg-gray-800/30 text-gray-500 text-right py-4 px-2 lg:px-3 font-mono text-xs select-none border-r border-gray-700 flex-shrink-0"
+                    style={{ minWidth: '60px' }}
+                  >
+                    {code.split('\n').map((_, index) => (
+                      <div
+                        key={index}
+                        className="leading-6 hover:text-gray-300 transition-colors min-h-[24px]"
+                      >
+                        {index + 1}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* CONTENEDOR PRINCIPAL CON SCROLL ÚNICO */}
+                  <div 
+                    ref={scrollContainerRef}
+                    className="flex-1 flex relative overflow-auto min-w-0"
+                  >
+                    {/* Textarea del código (invisible para capturar entrada) */}
+                    <textarea
+                      ref={textareaRef}
+                      value={code}
+                      onChange={handleCodeChange}
+                      onKeyDown={handleKeyDown}
+                      className="w-full h-full min-h-full bg-transparent text-transparent caret-white font-mono text-sm p-3 lg:p-4 focus:outline-none resize-none leading-6 tracking-wide absolute inset-0 z-10 whitespace-pre"
+                      placeholder="// Escribe tu código TypeScript aquí..."
+                      spellCheck="false"
+                      style={{
+                        fontFamily: '"Fira Code", "Cascadia Code", "Source Code Pro", monospace',
+                      }}
+                    />
+
+                    {/* Código con resaltado de sintaxis (SOLO VISUAL) */}
+                    <div 
+                      className="w-full h-full min-h-full py-4 px-3 lg:px-4 font-mono text-sm leading-6 tracking-wide whitespace-pre pointer-events-none absolute inset-0"
+                    >
+                      <CodeHighlighter code={code} language="typescript" />
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Área del editor con números de línea */}
-              <div className="flex-1 flex overflow-auto bg-gray-900">
-                {/* Números de línea */}
-                <div className="bg-gray-800/30 text-gray-500 text-right py-4 px-2 lg:px-3 font-mono text-xs select-none border-r border-gray-700">
-                  {code.split('\n').map((_, index) => (
-                    <div
-                      key={index}
-                      className="leading-6 hover:text-gray-300 transition-colors"
-                    >
-                      {index + 1}
-                    </div>
-                  ))}
+              {/* Minimap */}
+              <div className="w-32 border-l border-gray-700 flex flex-col flex-shrink-0">
+                <div className="bg-gray-800/50 px-2 py-1 border-b border-gray-700 text-xs text-gray-400 text-center flex-shrink-0">
+                  MINIMAP
                 </div>
-
-                {/* Textarea del código */}
-                <textarea
-                  ref={textareaRef}
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="flex-1 bg-transparent text-gray-100 font-mono text-sm p-3 lg:p-4 focus:outline-none resize-none leading-6 tracking-wide"
-                  placeholder="// Escribe tu código TypeScript aquí..."
-                  spellCheck="false"
-                  style={{
-                    fontFamily: '"Fira Code", "Cascadia Code", "Source Code Pro", monospace',
-                  }}
-                />
+                <div className="flex-1 min-h-0">
+                  <CodeMinimap 
+                    code={code} 
+                    scrollTop={scrollTop} 
+                    scrollLeft={scrollLeft}
+                    onScrollClick={handleMinimapScroll} 
+                  />
+                </div>
               </div>
             </div>
           ) : (
@@ -679,28 +929,42 @@ export const CONSTANTES = {
           )}
         </div>
 
-        {/* Terminal */}
+        {/* Terminal redimensionable */}
         {terminalOpen && (
-          <div className="h-48 lg:h-64 bg-gray-900 border-t border-gray-700 backdrop-blur-lg transition-all duration-300">
-            <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
-              <div className="flex items-center space-x-2">
-                <FiTerminal className="text-blue-400" size={14} />
-                <span className="text-sm font-medium text-white">TERMINAL</span>
-              </div>
-              <button
-                onClick={() => setTerminalOpen(false)}
-                className="text-gray-400 hover:text-white p-1 rounded hover:bg-gray-700 transition-colors"
-              >
-                ×
-              </button>
+          <div
+            ref={terminalRef}
+            className="bg-gray-900 border-t border-gray-700 backdrop-blur-lg transition-all duration-300 flex flex-col flex-shrink-0"
+            style={{ height: `${terminalHeight}px` }}
+          >
+            {/* Barra de redimensionamiento */}
+            <div
+              className="h-2 cursor-row-resize bg-gray-700 hover:bg-blue-500 transition-colors flex items-center justify-center flex-shrink-0"
+              onMouseDown={() => setIsResizing(true)}
+            >
+              <div className="w-8 h-1 bg-gray-500 rounded-full"></div>
             </div>
-            <div className="h-40 lg:h-56 p-4 overflow-y-auto font-mono text-xs lg:text-sm bg-gray-900">
-              {terminalOutput.map((line, index) => (
-                <div key={index} className="text-green-400 mb-1">{line}</div>
-              ))}
-              <div className="flex items-center text-gray-300">
-                <span className="text-blue-400 mr-2">$</span>
-                <span>Listo para ejecutar comandos...</span>
+
+            <div className="flex-1 flex flex-col min-h-0">
+              <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700 flex-shrink-0">
+                <div className="flex items-center space-x-2">
+                  <FiTerminal className="text-blue-400" size={14} />
+                  <span className="text-sm font-medium text-white">TERMINAL</span>
+                </div>
+                <button
+                  onClick={() => setTerminalOpen(false)}
+                  className="text-gray-400 hover:text-white p-1 rounded hover:bg-gray-700 transition-colors"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="flex-1 p-4 overflow-y-auto font-mono text-xs lg:text-sm bg-gray-900 min-h-0">
+                {terminalOutput.map((line, index) => (
+                  <div key={index} className="text-green-400 mb-1">{line}</div>
+                ))}
+                <div className="flex items-center text-gray-300">
+                  <span className="text-blue-400 mr-2">$</span>
+                  <span>Listo para ejecutar comandos...</span>
+                </div>
               </div>
             </div>
           </div>
