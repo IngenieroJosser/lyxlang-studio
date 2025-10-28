@@ -21,7 +21,9 @@ import {
   FiMoon,
   FiSun,
   FiGitBranch,
-  FiUser
+  FiUser,
+  FiMenu,
+  FiX
 } from 'react-icons/fi';
 import Image from 'next/image';
 
@@ -136,7 +138,25 @@ export const CONSTANTES = {
   const [darkMode, setDarkMode] = useState(true);
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [terminalOutput, setTerminalOutput] = useState<string[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Detectar cambios en el tamaño de la pantalla
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth >= 768) {
+        setSidebarOpen(true);
+      } else {
+        setSidebarOpen(false);
+      }
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
 
   useEffect(() => {
     if (selectedFile) {
@@ -183,6 +203,10 @@ export const CONSTANTES = {
   const handleFileSelect = (file: FileNode) => {
     if (file.type === 'file') {
       setSelectedFile(file);
+      // Cerrar sidebar en móvil al seleccionar archivo
+      if (isMobile) {
+        setSidebarOpen(false);
+      }
     } else {
       toggleFolder(file.id);
     }
@@ -280,7 +304,7 @@ export const CONSTANTES = {
 
     setFiles(updateFileContent(files));
     setSelectedFile({ ...selectedFile, content: code });
-    addTerminalOutput('✅ Archivo guardado correctamente');
+    addTerminalOutput('Archivo guardado correctamente');
   };
 
   const deleteItem = (id: string) => {
@@ -302,9 +326,9 @@ export const CONSTANTES = {
   };
 
   const compileCode = () => {
-    addTerminalOutput('🔨 Compilando código TypeScript...');
-    addTerminalOutput('📦 Generando archivos JavaScript...');
-    addTerminalOutput('✅ Compilación completada exitosamente');
+    addTerminalOutput('Compilando código TypeScript...');
+    addTerminalOutput('Generando archivos JavaScript...');
+    addTerminalOutput('Compilación completada exitosamente');
     setTerminalOpen(true);
   };
 
@@ -414,8 +438,20 @@ export const CONSTANTES = {
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white overflow-hidden">
+      {/* Overlay para móvil */}
+      {sidebarOpen && isMobile && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar Izquierdo - Explorador */}
-      <div className="w-72 bg-gray-800/90 backdrop-blur-lg border-r border-gray-700 flex flex-col shadow-xl transition-all duration-300">
+      <div className={`
+        fixed lg:relative z-50 h-full bg-gray-800/95 backdrop-blur-lg border-r border-gray-700 flex flex-col shadow-xl transition-all duration-300
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        w-80 lg:w-72
+      `}>
         {/* Header del Sidebar */}
         <div className="p-4 border-b border-gray-700 bg-gradient-to-r from-gray-800 to-gray-700/50">
           <div className="flex items-center justify-between mb-4">
@@ -434,12 +470,20 @@ export const CONSTANTES = {
                 <p className="text-xs text-gray-400">Proyecto Activo</p>
               </div>
             </div>
-            <button
-              onClick={() => setDarkMode(!darkMode)}
-              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              {darkMode ? <FiSun size={16} className="text-yellow-400" /> : <FiMoon size={16} className="text-blue-400" />}
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                {darkMode ? <FiSun size={16} className="text-yellow-400" /> : <FiMoon size={16} className="text-blue-400" />}
+              </button>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="lg:hidden p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <FiX size={16} />
+              </button>
+            </div>
           </div>
 
           {/* Barra de búsqueda */}
@@ -502,42 +546,50 @@ export const CONSTANTES = {
       </div>
 
       {/* Área Principal */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         {/* Header del Editor */}
-        <div className="bg-gray-800/80 backdrop-blur-lg border-b border-gray-700 px-6 py-3">
+        <div className="bg-gray-800/80 backdrop-blur-lg border-b border-gray-700 px-4 lg:px-6 py-3">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center text-sm text-gray-300 bg-gray-700/50 px-3 py-1 rounded-lg">
-                <FiHome className="mr-2" size={14} />
-                <span className="font-mono text-xs">{currentPath || '/proyecto'}</span>
+            <div className="flex items-center space-x-2 lg:space-x-4">
+              {/* Botón menú móvil */}
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="lg:hidden p-2 hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <FiMenu size={18} />
+              </button>
+
+              <div className="flex items-center text-sm text-gray-300 bg-gray-700/50 px-3 py-1 rounded-lg max-w-[200px] lg:max-w-none">
+                <FiHome className="mr-2 flex-shrink-0" size={14} />
+                <span className="font-mono text-xs truncate">{currentPath || '/proyecto'}</span>
               </div>
+              
               {selectedFile && (
-                <div className="flex items-center space-x-2 px-3 py-1 bg-blue-500/20 rounded-lg border border-blue-500/30">
-                  <FiFile className="text-blue-400" size={14} />
-                  <span className="text-sm font-medium">{selectedFile.name}</span>
-                  <span className="text-xs text-gray-400 bg-gray-700/50 px-1.5 py-0.5 rounded">
+                <div className="hidden sm:flex items-center space-x-2 px-3 py-1 bg-blue-500/20 rounded-lg border border-blue-500/30">
+                  <FiFile className="text-blue-400 flex-shrink-0" size={14} />
+                  <span className="text-sm font-medium truncate max-w-[120px] lg:max-w-none">{selectedFile.name}</span>
+                  <span className="text-xs text-gray-400 bg-gray-700/50 px-1.5 py-0.5 rounded hidden lg:block">
                     {selectedFile.name.split('.').pop()}
                   </span>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 lg:space-x-2">
               <button
                 onClick={saveFile}
-                className="flex items-center px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-all duration-200 shadow-lg hover:shadow-green-500/25"
+                className="flex items-center px-2 lg:px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-all duration-200 shadow-lg hover:shadow-green-500/25"
               >
-                <FiSave className="mr-1.5" size={14} />
-                Guardar
+                <FiSave className="mr-1 lg:mr-1.5 flex-shrink-0" size={14} />
+                <span className="hidden sm:inline">Guardar</span>
               </button>
               <button
                 onClick={() => setTerminalOpen(!terminalOpen)}
-                className={`p-2 rounded-lg transition-colors ${terminalOpen ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-gray-700'
-                  }`}
+                className={`p-2 rounded-lg transition-colors ${terminalOpen ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-gray-700'}`}
               >
                 <FiTerminal size={16} />
               </button>
-              <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
+              <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors hidden lg:block">
                 <FiSettings size={16} />
               </button>
             </div>
@@ -545,23 +597,23 @@ export const CONSTANTES = {
         </div>
 
         {/* Editor de Código */}
-        <div className="flex-1 flex bg-gradient-to-br from-gray-900 to-gray-800/80 p-4">
+        <div className="flex-1 flex bg-gradient-to-br from-gray-900 to-gray-800/80 p-2 lg:p-4">
           {selectedFile ? (
             <div className="flex-1 flex flex-col bg-gray-900 rounded-xl border border-gray-700 shadow-2xl overflow-hidden">
               {/* Header del archivo */}
-              <div className="bg-gray-800/50 px-4 py-2 border-b border-gray-700">
+              <div className="bg-gray-800/50 px-3 lg:px-4 py-2 border-b border-gray-700">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <div className="flex items-center space-x-2">
-                      <FiFile className="text-blue-400" size={16} />
-                      <span className="font-mono text-sm font-medium">{selectedFile.name}</span>
+                  <div className="flex items-center space-x-2 overflow-hidden">
+                    <div className="flex items-center space-x-2 min-w-0">
+                      <FiFile className="text-blue-400 flex-shrink-0" size={16} />
+                      <span className="font-mono text-sm font-medium truncate">{selectedFile.name}</span>
                     </div>
-                    <div className="flex items-center space-x-1 text-xs">
+                    <div className="flex items-center space-x-1 text-xs flex-shrink-0">
                       <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                      <span className="text-gray-400">Guardado</span>
+                      <span className="text-gray-400 hidden sm:inline">Guardado</span>
                     </div>
                   </div>
-                  <div className="text-xs text-gray-400 bg-gray-700/50 px-2 py-1 rounded">
+                  <div className="text-xs text-gray-400 bg-gray-700/50 px-2 py-1 rounded hidden sm:block">
                     {code.split('\n').length} líneas • TypeScript
                   </div>
                 </div>
@@ -570,7 +622,7 @@ export const CONSTANTES = {
               {/* Área del editor con números de línea */}
               <div className="flex-1 flex overflow-auto bg-gray-900">
                 {/* Números de línea */}
-                <div className="bg-gray-800/30 text-gray-500 text-right py-4 px-3 font-mono text-xs select-none border-r border-gray-700">
+                <div className="bg-gray-800/30 text-gray-500 text-right py-4 px-2 lg:px-3 font-mono text-xs select-none border-r border-gray-700">
                   {code.split('\n').map((_, index) => (
                     <div
                       key={index}
@@ -587,7 +639,7 @@ export const CONSTANTES = {
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  className="flex-1 bg-transparent text-gray-100 font-mono text-sm p-4 focus:outline-none resize-none leading-6 tracking-wide"
+                  className="flex-1 bg-transparent text-gray-100 font-mono text-sm p-3 lg:p-4 focus:outline-none resize-none leading-6 tracking-wide"
                   placeholder="// Escribe tu código TypeScript aquí..."
                   spellCheck="false"
                   style={{
@@ -597,29 +649,29 @@ export const CONSTANTES = {
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center max-w-md p-8 bg-gray-800/50 rounded-2xl border border-gray-700 backdrop-blur-lg">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-500/20 rounded-2xl mb-6 border border-blue-500/30">
-                  <FiCode className="text-3xl text-blue-400" />
+            <div className="flex-1 flex items-center justify-center p-4">
+              <div className="text-center max-w-md w-full p-6 lg:p-8 bg-gray-800/50 rounded-2xl border border-gray-700 backdrop-blur-lg">
+                <div className="inline-flex items-center justify-center w-12 h-12 lg:w-16 lg:h-16 bg-blue-500/20 rounded-2xl mb-4 lg:mb-6 border border-blue-500/30">
+                  <FiCode className="text-xl lg:text-3xl text-blue-400" />
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-3">Editor de Código</h3>
-                <p className="text-gray-400 mb-6 leading-relaxed">
+                <h3 className="text-xl lg:text-2xl font-bold text-white mb-2 lg:mb-3">Editor de Código</h3>
+                <p className="text-gray-400 mb-4 lg:mb-6 leading-relaxed text-sm lg:text-base">
                   Selecciona un archivo del explorador o crea uno nuevo para empezar a programar en TypeScript.
                 </p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2 lg:gap-3">
                   <button
                     onClick={() => addNewItem(undefined, 'file')}
-                    className="flex flex-col items-center p-4 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600 rounded-xl transition-all duration-200 hover:border-blue-400/30 group"
+                    className="flex flex-col items-center p-3 lg:p-4 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600 rounded-xl transition-all duration-200 hover:border-blue-400/30 group"
                   >
-                    <FiFilePlus className="mb-2 text-blue-400 group-hover:scale-110 transition-transform" size={20} />
-                    <span className="text-sm font-medium">Nuevo Archivo</span>
+                    <FiFilePlus className="mb-1 lg:mb-2 text-blue-400 group-hover:scale-110 transition-transform" size={18} />
+                    <span className="text-xs lg:text-sm font-medium">Nuevo Archivo</span>
                   </button>
                   <button
                     onClick={() => addNewItem(undefined, 'folder')}
-                    className="flex flex-col items-center p-4 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600 rounded-xl transition-all duration-200 hover:border-blue-400/30 group"
+                    className="flex flex-col items-center p-3 lg:p-4 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600 rounded-xl transition-all duration-200 hover:border-blue-400/30 group"
                   >
-                    <FiFolderPlus className="mb-2 text-blue-400 group-hover:scale-110 transition-transform" size={20} />
-                    <span className="text-sm font-medium">Nueva Carpeta</span>
+                    <FiFolderPlus className="mb-1 lg:mb-2 text-blue-400 group-hover:scale-110 transition-transform" size={18} />
+                    <span className="text-xs lg:text-sm font-medium">Nueva Carpeta</span>
                   </button>
                 </div>
               </div>
@@ -629,7 +681,7 @@ export const CONSTANTES = {
 
         {/* Terminal */}
         {terminalOpen && (
-          <div className="h-64 bg-gray-900 border-t border-gray-700 backdrop-blur-lg transition-all duration-300">
+          <div className="h-48 lg:h-64 bg-gray-900 border-t border-gray-700 backdrop-blur-lg transition-all duration-300">
             <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
               <div className="flex items-center space-x-2">
                 <FiTerminal className="text-blue-400" size={14} />
@@ -642,7 +694,7 @@ export const CONSTANTES = {
                 ×
               </button>
             </div>
-            <div className="h-56 p-4 overflow-y-auto font-mono text-sm bg-gray-900">
+            <div className="h-40 lg:h-56 p-4 overflow-y-auto font-mono text-xs lg:text-sm bg-gray-900">
               {terminalOutput.map((line, index) => (
                 <div key={index} className="text-green-400 mb-1">{line}</div>
               ))}
