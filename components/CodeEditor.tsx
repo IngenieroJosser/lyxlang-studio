@@ -37,91 +37,12 @@ interface FileNode {
   path?: string;
 }
 
-// Componente mejorado para el resaltado de sintaxis
+// Componente simple sin resaltado de sintaxis
 const CodeHighlighter = ({ code, language }: { code: string; language: string }) => {
-  const highlightSyntax = (text: string) => {
-    if (!text) return '';
-    
-    // Primero escapamos caracteres HTML para evitar inyección
-    const escapedText = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-
-    const keywords = [
-      'class', 'interface', 'extends', 'implements', 'constructor', 'public', 'private',
-      'protected', 'readonly', 'static', 'async', 'await', 'function', 'return', 'const',
-      'let', 'var', 'if', 'else', 'for', 'while', 'switch', 'case', 'break', 'continue',
-      'try', 'catch', 'throw', 'import', 'export', 'from', 'default', 'type', 'namespace',
-      'declare', 'any', 'string', 'number', 'boolean', 'void', 'null', 'undefined', 'this'
-    ];
-
-    // Patrones mejorados para evitar conflictos
-    const patterns = {
-      // Comentarios - más específicos
-      comment: /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)/g,
-      // Strings - maneja escapes correctamente
-      string: /('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*"|`(?:[^`\\]|\\.)*`)/g,
-      // Números - más preciso
-      number: /\b(-?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)\b/g,
-      // Keywords - solo palabras completas
-      keyword: new RegExp(`\\b(${keywords.join('|')})\\b`, 'g'),
-      // Funciones - más específico
-      function: /\b([a-zA-Z_$][a-zA-Z0-9_$]*)(?=\s*\()/g,
-      // Tipos - después de dos puntos
-      type: /:\s*([a-zA-Z_$][a-zA-Z0-9_$]*)\b/g,
-      // Decoradores - al inicio de línea con @
-      decorator: /^(\s*@[a-zA-Z_$][a-zA-Z0-9_$]*)/gm
-    };
-
-    let highlighted = escapedText;
-
-    // Aplicar resaltado en orden de especificidad
-    highlighted = highlighted.replace(
-      patterns.comment,
-      '<span class="text-green-400 italic">$1</span>'
-    );
-
-    highlighted = highlighted.replace(
-      patterns.string,
-      '<span class="text-yellow-300">$1</span>'
-    );
-
-    highlighted = highlighted.replace(
-      patterns.number,
-      '<span class="text-purple-400">$1</span>'
-    );
-
-    highlighted = highlighted.replace(
-      patterns.keyword,
-      '<span class="text-blue-400 font-medium">$1</span>'
-    );
-
-    highlighted = highlighted.replace(
-      patterns.function,
-      '<span class="text-cyan-400">$1</span>'
-    );
-
-    highlighted = highlighted.replace(
-      patterns.type,
-      ': <span class="text-teal-400">$1</span>'
-    );
-
-    highlighted = highlighted.replace(
-      patterns.decorator,
-      '<span class="text-pink-400 italic">$1</span>'
-    );
-
-    return highlighted;
-  };
-
   return (
-    <pre 
-      className="text-sm leading-6 whitespace-pre text-gray-100 font-mono"
-      dangerouslySetInnerHTML={{ __html: highlightSyntax(code) }} 
-    />
+    <pre className="text-sm leading-6 whitespace-pre text-gray-100 font-mono">
+      {code}
+    </pre>
   );
 };
 
@@ -890,9 +811,9 @@ const AdvancedCodeEditor = () => {
                       }}
                     />
 
-                    {/* Código con resaltado de sintaxis (SOLO ESTE SE VE) */}
+                    {/* Código sin resaltado (SOLO ESTE SE VE) */}
                     <div 
-                      className="w-full h-full min-h-full py-4 px-3 lg:px-4 font-mono text-sm leading-6 tracking-wide whitespace-pre pointer-events-none absolute inset-0"
+                      className="w-full h-full min-h-full py-4 px-3 lg:px-4 font-mono text-sm leading-6 tracking-wide whitespace-pre pointer-events-none absolute inset-0 text-gray-100"
                     >
                       <CodeHighlighter code={code} language="typescript" />
                     </div>
