@@ -40,7 +40,7 @@ interface FileNode {
 // Componente simple sin resaltado de sintaxis
 const CodeHighlighter = ({ code, language }: { code: string; language: string }) => {
   return (
-    <pre className="text-sm leading-6 whitespace-pre text-gray-100 font-mono">
+    <pre className="text-sm leading-6 whitespace-pre text-gray-100" style={{ fontFamily: 'var(--font-mono, "Fira Code", monospace)' }}>
       {code}
     </pre>
   );
@@ -72,7 +72,10 @@ const CodeMinimap = ({ code, scrollTop, scrollLeft, onScrollClick }: {
       className="w-full h-full bg-gray-800/30 overflow-hidden cursor-pointer relative border-l border-gray-600"
       onClick={handleClick}
     >
-      <div className="absolute inset-0 font-mono text-[2px] leading-[1px] text-gray-400 whitespace-pre">
+      <div 
+        className="absolute inset-0 text-[2px] leading-[1px] text-gray-400 whitespace-pre"
+        style={{ fontFamily: 'var(--font-mono, "Fira Code", monospace)' }}
+      >
         {code}
       </div>
       {/* Indicador de área visible */}
@@ -550,6 +553,117 @@ const AdvancedCodeEditor = () => {
 
   return (
     <div className="flex h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white overflow-hidden">
+      {/* Estilos para las barras de desplazamiento ultra delgadas */}
+      <style jsx global>{`
+        /* Personalización del scrollbar para Webkit (Chrome, Safari, Edge) */
+        ::-webkit-scrollbar {
+          width: 4px;
+          height: 4px;
+        }
+
+        ::-webkit-scrollbar-track {
+          background: rgba(15, 23, 42, 0.1);
+          border-radius: 2px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+          background: rgba(100, 116, 139, 0.4);
+          border-radius: 2px;
+          transition: all 0.2s ease;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+          background: rgba(148, 163, 184, 0.6);
+          width: 6px;
+          height: 6px;
+        }
+
+        ::-webkit-scrollbar-corner {
+          background: rgba(15, 23, 42, 0.3);
+        }
+
+        /* Para Firefox - scrollbars delgados */
+        * {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(100, 116, 139, 0.4) rgba(15, 23, 42, 0.1);
+        }
+
+        /* Scrollbars específicos para diferentes áreas con mejoras visuales */
+        .sidebar-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(100, 116, 139, 0.3) rgba(30, 41, 59, 0.1);
+        }
+
+        .sidebar-scrollbar::-webkit-scrollbar-track {
+          background: rgba(30, 41, 59, 0.1);
+          margin: 4px 0;
+        }
+
+        .sidebar-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(100, 116, 139, 0.3);
+        }
+
+        .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(148, 163, 184, 0.5);
+        }
+
+        .editor-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(100, 116, 139, 0.5) rgba(15, 23, 42, 0.2);
+        }
+
+        .editor-scrollbar::-webkit-scrollbar-track {
+          background: rgba(15, 23, 42, 0.2);
+          margin: 2px;
+        }
+
+        .editor-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(100, 116, 139, 0.5);
+        }
+
+        .editor-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(148, 163, 184, 0.7);
+        }
+
+        .terminal-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(100, 116, 139, 0.6) rgba(15, 23, 42, 0.3);
+        }
+
+        .terminal-scrollbar::-webkit-scrollbar-track {
+          background: rgba(15, 23, 42, 0.3);
+          margin: 2px;
+        }
+
+        .terminal-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(100, 116, 139, 0.6);
+        }
+
+        .terminal-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(148, 163, 184, 0.8);
+        }
+
+        /* Scrollbars para el buscador global y otras áreas modales */
+        .modal-scrollbar::-webkit-scrollbar {
+          width: 3px;
+          height: 3px;
+        }
+
+        .modal-scrollbar::-webkit-scrollbar-track {
+          background: rgba(30, 41, 59, 0.2);
+          border-radius: 1.5px;
+        }
+
+        .modal-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(100, 116, 139, 0.4);
+          border-radius: 1.5px;
+        }
+
+        .modal-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(148, 163, 184, 0.6);
+        }
+      `}</style>
+
       {/* Buscador Global */}
       {showGlobalSearch && (
         <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-start justify-center pt-20">
@@ -576,7 +690,7 @@ const AdvancedCodeEditor = () => {
                 />
               </div>
             </div>
-            <div className="p-4 max-h-96 overflow-y-auto">
+            <div className="p-4 max-h-96 overflow-y-auto modal-scrollbar">
               <div className="text-gray-400 text-sm">
                 Resultados de búsqueda aparecerán aquí...
               </div>
@@ -671,7 +785,7 @@ const AdvancedCodeEditor = () => {
         </div>
 
         {/* Árbol de archivos */}
-        <div className="flex-1 overflow-y-auto py-3">
+        <div className="flex-1 overflow-y-auto py-3 sidebar-scrollbar">
           <div className="space-y-0.5">
             {renderFileTree(files)}
           </div>
@@ -779,8 +893,11 @@ const AdvancedCodeEditor = () => {
                 <div className="flex-1 flex min-h-0 bg-gray-900 relative" ref={editorContainerRef}>
                   {/* Números de línea */}
                   <div 
-                    className="bg-gray-800/30 text-gray-500 text-right py-4 px-2 lg:px-3 font-mono text-xs select-none border-r border-gray-700 flex-shrink-0"
-                    style={{ minWidth: '60px' }}
+                    className="bg-gray-800/30 text-gray-500 text-right py-4 px-2 lg:px-3 text-xs select-none border-r border-gray-700 flex-shrink-0"
+                    style={{ 
+                      minWidth: '60px',
+                      fontFamily: 'var(--font-mono, "Fira Code", monospace)'
+                    }}
                   >
                     {code.split('\n').map((_, index) => (
                       <div
@@ -795,7 +912,7 @@ const AdvancedCodeEditor = () => {
                   {/* Contenedor principal con scroll */}
                   <div 
                     ref={scrollContainerRef}
-                    className="flex-1 flex relative overflow-auto min-w-0"
+                    className="flex-1 flex relative overflow-auto min-w-0 editor-scrollbar"
                   >
                     {/* Textarea del código (COMPLETAMENTE TRANSPARENTE) */}
                     <textarea
@@ -803,17 +920,18 @@ const AdvancedCodeEditor = () => {
                       value={code}
                       onChange={handleCodeChange}
                       onKeyDown={handleKeyDown}
-                      className="w-full h-full min-h-full bg-transparent text-transparent font-mono text-sm p-3 lg:p-4 focus:outline-none resize-none leading-6 tracking-wide absolute inset-0 z-10 whitespace-pre caret-white"
+                      className="w-full h-full min-h-full bg-transparent text-transparent text-sm p-3 lg:p-4 focus:outline-none resize-none leading-6 tracking-wide absolute inset-0 z-10 whitespace-pre caret-white"
                       placeholder="// Escribe tu código TypeScript aquí..."
                       spellCheck="false"
                       style={{
-                        fontFamily: '"Fira Code", "Cascadia Code", "Source Code Pro", monospace',
+                        fontFamily: 'var(--font-mono, "Fira Code", monospace)',
                       }}
                     />
 
                     {/* Código sin resaltado (SOLO ESTE SE VE) */}
                     <div 
-                      className="w-full h-full min-h-full py-4 px-3 lg:px-4 font-mono text-sm leading-6 tracking-wide whitespace-pre pointer-events-none absolute inset-0 text-gray-100"
+                      className="w-full h-full min-h-full py-4 px-3 lg:px-4 text-sm leading-6 tracking-wide whitespace-pre pointer-events-none absolute inset-0 text-gray-100"
+                      style={{ fontFamily: 'var(--font-mono, "Fira Code", monospace)' }}
                     >
                       <CodeHighlighter code={code} language="typescript" />
                     </div>
@@ -895,7 +1013,10 @@ const AdvancedCodeEditor = () => {
                   ×
                 </button>
               </div>
-              <div className="flex-1 p-4 overflow-y-auto font-mono text-xs lg:text-sm bg-gray-900 min-h-0">
+              <div 
+                className="flex-1 p-4 overflow-y-auto text-xs lg:text-sm bg-gray-900 min-h-0 terminal-scrollbar"
+                style={{ fontFamily: 'var(--font-mono, "Fira Code", monospace)' }}
+              >
                 {terminalOutput.map((line, index) => (
                   <div key={index} className="text-green-400 mb-1">{line}</div>
                 ))}
