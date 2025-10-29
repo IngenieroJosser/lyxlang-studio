@@ -53,6 +53,262 @@ interface FileNode {
   path?: string;
 }
 
+// Servicio de compilación TypeScript
+class TypeScriptCompiler {
+  private ts: any = null;
+  private initialized = false;
+
+  async initialize() {
+    if (this.initialized) return;
+
+    try {
+      if (typeof window !== 'undefined' && !(window as any).ts) {
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/typescript@latest/lib/typescript.js';
+        script.async = true;
+        document.head.appendChild(script);
+
+        await new Promise((resolve) => {
+          script.onload = resolve;
+        });
+      }
+
+      this.ts = (window as any).ts;
+      this.initialized = true;
+    } catch (error) {
+      console.error('Error initializing TypeScript compiler:', error);
+    }
+  }
+
+  compile(code: string): { success: boolean; output?: string; error?: string } {
+    if (!this.ts || !this.initialized) {
+      return {
+        success: false,
+        error: 'TypeScript compiler not initialized'
+      };
+    }
+
+    try {
+      const result = this.ts.transpileModule(code, {
+        compilerOptions: {
+          target: this.ts.ScriptTarget.ES2020,
+          module: this.ts.ModuleKind.ESNext,
+          strict: true,
+          esModuleInterop: true,
+          skipLibCheck: true,
+          forceConsistentCasingInFileNames: true,
+        }
+      });
+
+      return {
+        success: true,
+        output: result.outputText
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message || 'Unknown compilation error'
+      };
+    }
+  }
+}
+
+// Servicio de ejecución de comandos
+class CommandExecutor {
+  private fileSystem: FileNode[];
+  private setFiles: React.Dispatch<React.SetStateAction<FileNode[]>>;
+  private setTerminalOutput: React.Dispatch<React.SetStateAction<string[]>>;
+
+  constructor(
+    fileSystem: FileNode[], 
+    setFiles: React.Dispatch<React.SetStateAction<FileNode[]>>,
+    setTerminalOutput: React.Dispatch<React.SetStateAction<string[]>>
+  ) {
+    this.fileSystem = fileSystem;
+    this.setFiles = setFiles;
+    this.setTerminalOutput = setTerminalOutput;
+  }
+
+  private addOutput(message: string) {
+    this.setTerminalOutput(prev => [...prev, `${new Date().toLocaleTimeString()} ${message}`]);
+  }
+
+  private findFile(path: string): FileNode | null {
+    const search = (nodes: FileNode[], currentPath: string): FileNode | null => {
+      for (const node of nodes) {
+        if (node.path === currentPath) return node;
+        if (node.children) {
+          const found = search(node.children, currentPath);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    return search(this.fileSystem, path);
+  }
+
+  private executeNpmCommand(args: string[]): string {
+    const command = args[0];
+    
+    switch (command) {
+      case 'install':
+        if (args.length === 1) {
+          return 'Instalando dependencias del package.json...\n✅ Dependencias instaladas correctamente';
+        } else {
+          return `Instalando paquete: ${args.slice(1).join(' ')}\n✅ Paquete instalado correctamente`;
+        }
+      
+      case 'start':
+        return 'Iniciando servidor de desarrollo...\n✅ Servidor corriendo en http://localhost:3000';
+      
+      case 'run':
+        const script = args[1];
+        switch (script) {
+          case 'dev':
+            return 'Ejecutando script dev...\n✅ Servidor de desarrollo iniciado';
+          case 'build':
+            return 'Ejecutando build...\n✅ Build completado exitosamente';
+          case 'test':
+            return 'Ejecutando tests...\n✅ Todos los tests pasaron';
+          default:
+            return `Ejecutando script: ${script}\n✅ Script ejecutado correctamente`;
+        }
+      
+      case 'init':
+        return 'Inicializando proyecto npm...\n✅ package.json creado exitosamente';
+      
+      case 'update':
+        return 'Actualizando dependencias...\n✅ Dependencias actualizadas correctamente';
+      
+      case 'audit':
+        return 'Realizando auditoría de seguridad...\n✅ No se encontraron vulnerabilidades';
+      
+      default:
+        return `Comando npm '${command}' no reconocido`;
+    }
+  }
+
+  private executeGitCommand(args: string[]): string {
+    const command = args[0];
+    
+    switch (command) {
+      case 'init':
+        return 'Inicializando repositorio Git...\nRepositorio Git inicializado';
+      
+      case 'status':
+        return 'Estado del repositorio:\n M src/main.ts\n?? nuevo_archivo.ts\n Working tree clean';
+      
+      case 'add':
+        if (args[1] === '.') {
+          return 'Añadiendo todos los archivos al staging...\n Archivos añadidos correctamente';
+        } else {
+          return `Añadiendo archivo: ${args[1]}\n Archivo añadido al staging`;
+        }
+      
+      case 'commit':
+        const message = args.slice(1).join(' ').replace(/-m\s*['"]?/, '').replace(/['"]?$/, '');
+        return `Haciendo commit: ${message || "Sin mensaje"}\nCommit realizado correctamente`;
+      
+      case 'push':
+        return 'Enviando cambios al repositorio remoto...\n Cambios enviados correctamente';
+      
+      case 'pull':
+        return 'Obteniendo cambios del repositorio remoto...\n Cambios obtenidos correctamente';
+      
+      case 'branch':
+        return 'Ramas disponibles:\n* main\n  development\n  feature/nueva-funcionalidad';
+      
+      case 'checkout':
+        return `Cambiando a rama: ${args[1]}\n Cambio de rama exitoso`;
+      
+      case 'clone':
+        return `Clonando repositorio: ${args[1]}\n Repositorio clonado correctamente`;
+      
+      default:
+        return `Comando git '${command}' no reconocido`;
+    }
+  }
+
+  private executeSystemCommand(args: string[]): string {
+    const command = args[0];
+    
+    switch (command) {
+      case 'ls':
+        return 'Contenido del directorio:\n src/\n package.json\n README.md\n tsconfig.json';
+      
+      case 'pwd':
+        return `Directorio actual: ${window.location.pathname}`;
+      
+      case 'echo':
+        return args.slice(1).join(' ');
+      
+      case 'clear':
+        this.setTerminalOutput([]);
+        return '';
+      
+      case 'cat':
+        if (args[1]) {
+          const file = this.findFile(args[1]);
+          return file?.content || `Archivo no encontrado: ${args[1]}`;
+        }
+        return 'Especifica un archivo para mostrar';
+      
+      case 'mkdir':
+        return `Creando directorio: ${args[1]}\n Directorio creado correctamente`;
+      
+      case 'touch':
+        return `Creando archivo: ${args[1]}\n Archivo creado correctamente`;
+      
+      case 'rm':
+        return `Eliminando: ${args[1]}\n Eliminado correctamente`;
+      
+      default:
+        return `Comando '${command}' no encontrado`;
+    }
+  }
+
+  async executeCommand(fullCommand: string): Promise<string> {
+    const trimmedCommand = fullCommand.trim();
+    if (!trimmedCommand) return '';
+
+    const args = trimmedCommand.split(' ').filter(arg => arg.length > 0);
+    const command = args[0].toLowerCase();
+
+    this.addOutput(`$ ${trimmedCommand}`);
+
+    // Pequeño delay para simular procesamiento
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    try {
+      let output = '';
+
+      // Comandos npm
+      if (command === 'npm') {
+        output = this.executeNpmCommand(args.slice(1));
+      }
+      // Comandos git
+      else if (command === 'git') {
+        output = this.executeGitCommand(args.slice(1));
+      }
+      // Comandos del sistema
+      else {
+        output = this.executeSystemCommand(args);
+      }
+
+      if (output) {
+        const lines = output.split('\n');
+        lines.forEach(line => this.addOutput(line));
+      }
+
+      return output;
+    } catch (error: any) {
+      const errorMessage = `Error ejecutando comando: ${error.message}`;
+      this.addOutput(errorMessage);
+      return errorMessage;
+    }
+  }
+}
+
 // Componente de resaltado de sintaxis con PrismJS
 const CodeHighlighter = ({ code, language }: { code: string; language: string }) => {
   const highlightedCode = React.useMemo(() => {
@@ -131,67 +387,6 @@ const CodeMinimap = ({ code, scrollTop, scrollLeft, onScrollClick, language }: {
     </div>
   );
 };
-
-// Servicio de compilación TypeScript
-class TypeScriptCompiler {
-  private ts: any = null;
-  private initialized = false;
-
-  async initialize() {
-    if (this.initialized) return;
-
-    try {
-      // Cargar TypeScript desde CDN
-      if (typeof window !== 'undefined' && !(window as any).ts) {
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/typescript@latest/lib/typescript.js';
-        script.async = true;
-        document.head.appendChild(script);
-
-        await new Promise((resolve) => {
-          script.onload = resolve;
-        });
-      }
-
-      this.ts = (window as any).ts;
-      this.initialized = true;
-    } catch (error) {
-      console.error('Error initializing TypeScript compiler:', error);
-    }
-  }
-
-  compile(code: string): { success: boolean; output?: string; error?: string } {
-    if (!this.ts || !this.initialized) {
-      return {
-        success: false,
-        error: 'TypeScript compiler not initialized'
-      };
-    }
-
-    try {
-      const result = this.ts.transpileModule(code, {
-        compilerOptions: {
-          target: this.ts.ScriptTarget.ES2020,
-          module: this.ts.ModuleKind.ESNext,
-          strict: true,
-          esModuleInterop: true,
-          skipLibCheck: true,
-          forceConsistentCasingInFileNames: true,
-        }
-      });
-
-      return {
-        success: true,
-        output: result.outputText
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        error: error.message || 'Unknown compilation error'
-      };
-    }
-  }
-}
 
 const AdvancedCodeEditor = () => {
   const [files, setFiles] = useState<FileNode[]>([
@@ -302,8 +497,10 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
   const [darkMode, setDarkMode] = useState(true);
   const [terminalOpen, setTerminalOpen] = useState(false);
   const [terminalOutput, setTerminalOutput] = useState<string[]>([]);
+  const [terminalInput, setTerminalInput] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
   const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
   const [terminalHeight, setTerminalHeight] = useState(300);
@@ -313,8 +510,10 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
   const [scrollTop, setScrollTop] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [compiler] = useState(() => new TypeScriptCompiler());
+  const [commandExecutor] = useState(() => new CommandExecutor(files, setFiles, setTerminalOutput));
 
   const terminalRef = useRef<HTMLDivElement>(null);
+  const terminalInputRef = useRef<HTMLInputElement>(null);
   const globalSearchRef = useRef<HTMLInputElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
 
@@ -326,8 +525,11 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
   // Detectar cambios en el tamaño de la pantalla
   useEffect(() => {
     const checkScreenSize = () => {
-      setIsMobile(window.innerWidth < 768);
-      if (window.innerWidth >= 768) {
+      const width = window.innerWidth;
+      setIsMobile(width < 768);
+      setIsTablet(width >= 768 && width < 1024);
+      
+      if (width >= 768) {
         setSidebarOpen(true);
       } else {
         setSidebarOpen(false);
@@ -338,6 +540,40 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
     window.addEventListener('resize', checkScreenSize);
     return () => window.removeEventListener('resize', checkScreenSize);
   }, []);
+
+  // Persistir configuración en localStorage
+  useEffect(() => {
+    const savedDarkMode = localStorage.getItem('editor-darkMode');
+    const savedTerminalHeight = localStorage.getItem('editor-terminalHeight');
+    
+    if (savedDarkMode) setDarkMode(JSON.parse(savedDarkMode));
+    if (savedTerminalHeight) setTerminalHeight(JSON.parse(savedTerminalHeight));
+  }, []);
+
+  // Guardar configuración en localStorage
+  useEffect(() => {
+    localStorage.setItem('editor-darkMode', JSON.stringify(darkMode));
+  }, [darkMode]);
+
+  useEffect(() => {
+    localStorage.setItem('editor-terminalHeight', JSON.stringify(terminalHeight));
+  }, [terminalHeight]);
+
+  // Auto-scroll de la terminal
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [terminalOutput]);
+
+  // Focus en input de terminal cuando se abre
+  useEffect(() => {
+    if (terminalOpen && terminalInputRef.current) {
+      setTimeout(() => {
+        terminalInputRef.current?.focus();
+      }, 100);
+    }
+  }, [terminalOpen]);
 
   // Efecto para los atajos de teclado
   useEffect(() => {
@@ -351,6 +587,11 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
         e.preventDefault();
         setSidebarOpen(prev => !prev);
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === '`') {
+        e.preventDefault();
+        setTerminalOpen(prev => !prev);
       }
 
       if (e.key === 'Escape' && showGlobalSearch) {
@@ -578,7 +819,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
         // Ejecutar el código compilado
         try {
           addTerminalOutput('🚀 Ejecutando código...');
-          // Usar eval en un contexto controlado
           const consoleLog = console.log;
           const capturedOutput: string[] = [];
           console.log = (...args: any[]) => {
@@ -611,6 +851,25 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
 
   const addTerminalOutput = (message: string) => {
     setTerminalOutput(prev => [...prev, `${new Date().toLocaleTimeString()} ${message}`]);
+  };
+
+  // Ejecutar comandos en la terminal
+  const executeTerminalCommand = async (command: string) => {
+    if (!command.trim()) return;
+
+    setTerminalInput('');
+    await commandExecutor.executeCommand(command);
+    
+    // Focus de vuelta al input
+    setTimeout(() => {
+      terminalInputRef.current?.focus();
+    }, 100);
+  };
+
+  const handleTerminalKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      executeTerminalCommand(terminalInput);
+    }
   };
 
   const filteredFiles = (nodes: FileNode[]): FileNode[] => {
@@ -713,6 +972,13 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
     ));
   };
 
+  // Determinar el ancho del minimap basado en el dispositivo
+  const getMinimapWidth = () => {
+    if (isMobile) return '0px'; // Ocultar en móvil
+    if (isTablet) return '24px'; // Más estrecho en tablet
+    return '32px'; // Ancho normal en desktop
+  };
+
   return (
     <div className="flex h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white overflow-hidden">
       {/* Estilos personalizados */}
@@ -805,6 +1071,26 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
         .prism-highlight .token.regex,
         .prism-highlight .token.important {
           color: #d16969;
+        }
+
+        /* Estilos para la terminal con tipografía del sitio */
+        .terminal-output {
+          font-family: var(--font-family, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif) !important;
+          line-height: 1.5;
+          letter-spacing: -0.01em;
+        }
+
+        /* Tema personalizado para Monaco Editor con fondo persistente */
+        .monaco-editor {
+          background-color: transparent !important;
+        }
+
+        .monaco-editor .margin {
+          background-color: transparent !important;
+        }
+
+        .editor-background {
+          background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
         }
       `}</style>
 
@@ -951,7 +1237,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       </div>
 
       {/* Área Principal */}
-      <div className="flex-1 flex flex-col min-w-0 h-full">
+      <div className="flex-1 flex flex-col min-w-0 h-full editor-background">
         {/* Header del Editor */}
         <div className="bg-gray-800/80 backdrop-blur-lg border-b border-gray-700 px-4 lg:px-6 py-3 shrink-0">
           <div className="flex items-center justify-between">
@@ -1038,57 +1324,48 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                   <MonacoEditor
                     height="100%"
                     language={getLanguageFromFileName(selectedFile.name)}
-                    theme="vs-dark" // Cambiar a custom theme
+                    theme="vs-dark"
                     value={code}
                     onChange={handleEditorChange}
                     beforeMount={(monaco) => {
-                      monaco.editor.defineTheme('chocoSoftDark', {
+                      monaco.editor.defineTheme('custom-dark', {
                         base: 'vs-dark',
                         inherit: true,
                         rules: [
-                          { token: 'comment', foreground: '6b7280', fontStyle: 'italic' },       // Gris suave
-                          { token: 'keyword', foreground: '7dd3fc', fontStyle: 'bold' },         // Azul cielo
-                          { token: 'number', foreground: 'fca5a5' },                             // Rojo coral suave
-                          { token: 'string', foreground: '86efac' },                             // Verde menta
-                          { token: 'type', foreground: 'c4b5fd' },                               // Lila claro
-                          { token: 'function', foreground: 'f9a8d4' },                           // Rosa pastel
-                          { token: 'variable', foreground: 'e0e7ff' },                           // Blanco cálido
-                          { token: 'identifier', foreground: 'f8fafc' },                         // Texto principal
-                          { token: 'delimiter', foreground: '94a3b8' },                          // Gris azulado
-                          { token: 'operator', foreground: 'bae6fd' },                           // Azul suave
+                          { token: 'comment', foreground: '6A9955' },
+                          { token: 'keyword', foreground: '569CD6' },
+                          { token: 'number', foreground: 'B5CEA8' },
+                          { token: 'string', foreground: 'CE9178' },
+                          { token: 'type', foreground: '4EC9B0' },
                         ],
                         colors: {
-                          'editor.background': '#00000000', // Transparente
-                          'editor.foreground': '#f1f5f9',
-                          'editorLineNumber.foreground': '#475569',
-                          'editorLineNumber.activeForeground': '#e2e8f0',
-                          'editorCursor.foreground': '#7dd3fc',
-                          'editor.selectionBackground': '#33415580',
-                          'editor.inactiveSelectionBackground': '#33415540',
-                          'editor.lineHighlightBackground': '#1e293b80',
-                          'editorIndentGuide.background': '#334155',
-                          'editorIndentGuide.activeBackground': '#64748b',
-                        },
+                          'editor.background': '#00000000',
+                          'editor.foreground': '#D4D4D4',
+                          'editorLineNumber.foreground': '#6E7681',
+                          'editorLineNumber.activeForeground': '#CCCCCC',
+                          'editorCursor.foreground': '#FFFFFF',
+                          'editor.selectionBackground': '#264F78',
+                          'editor.inactiveSelectionBackground': '#3A3D41',
+                        }
                       });
-                    }}                    
-                    onMount={(editor, monaco) => {
-                      // Aplicar el tema personalizado
-                      monaco.editor.setTheme('transparent-dark');
-
-                      // Forzar actualización del fondo
+                    }}
+                    onMount={(editor) => {
+                      editor.updateOptions({
+                        theme: 'custom-dark'
+                      });
+                      
                       const container = editor.getContainerDomNode();
                       container.style.backgroundColor = 'transparent';
-
-                      // También puedes aplicar estilos adicionales
-                      const monacoElement = container.querySelector('.monaco-editor');
-                      if (monacoElement) {
-                        (monacoElement as HTMLElement).style.backgroundColor = 'transparent';
-                      }
+                      
+                      const monacoElements = container.querySelectorAll('.monaco-editor');
+                      monacoElements.forEach((element: any) => {
+                        element.style.backgroundColor = 'transparent';
+                      });
                     }}
                     options={{
                       minimap: { enabled: false },
                       fontSize: 12,
-                      fontFamily: `'Tinos', 'Space Mono', 'Courier New', monospace`,
+                      fontFamily: `'Fira Code', 'Courier New', monospace`,
                       lineNumbers: 'on',
                       scrollBeyondLastLine: false,
                       automaticLayout: true,
@@ -1107,7 +1384,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                       parameterHints: { enabled: true },
                       bracketPairColorization: { enabled: true },
                       guides: { bracketPairs: true },
-                      // Configuración adicional para transparencia
                       overviewRulerBorder: false,
                       hideCursorInOverviewRuler: true,
                     }}
@@ -1115,21 +1391,26 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                 </div>
               </div>
 
-              {/* Minimap personalizado con PrismJS */}
-              <div className="w-32 border-l border-gray-700 flex flex-col shrink-0">
-                <div className="bg-gray-800/50 px-2 py-1 border-b border-gray-700 text-xs text-gray-400 text-center shrink-0">
-                  MINIMAP
+              {/* Minimap personalizado con PrismJS - Responsive */}
+              {!isMobile && (
+                <div 
+                  className="border-l border-gray-700 flex flex-col shrink-0 transition-all duration-300"
+                  style={{ width: getMinimapWidth() }}
+                >
+                  <div className="bg-gray-800/50 px-2 py-1 border-b border-gray-700 text-xs text-gray-400 text-center shrink-0 truncate">
+                    {isTablet ? 'MAP' : 'MINIMAP'}
+                  </div>
+                  <div className="flex-1 min-h-0">
+                    <CodeMinimap
+                      code={code}
+                      scrollTop={scrollTop}
+                      scrollLeft={scrollLeft}
+                      onScrollClick={handleMinimapScroll}
+                      language={getLanguageFromFileName(selectedFile.name)}
+                    />
+                  </div>
                 </div>
-                <div className="flex-1 min-h-0">
-                  <CodeMinimap
-                    code={code}
-                    scrollTop={scrollTop}
-                    scrollLeft={scrollLeft}
-                    onScrollClick={handleMinimapScroll}
-                    language={getLanguageFromFileName(selectedFile.name)}
-                  />
-                </div>
-              </div>
+              )}
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center p-4">
@@ -1182,6 +1463,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                 <div className="flex items-center space-x-2">
                   <FiTerminal className="text-blue-400" size={14} />
                   <span className="text-sm font-medium text-white">TERMINAL</span>
+                  <span className="text-xs text-gray-400">(Ctrl+` para toggle)</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <button
@@ -1198,15 +1480,61 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                   </button>
                 </div>
               </div>
+              
+              {/* Output de la terminal */}
               <div
-                className="flex-1 p-4 overflow-y-auto text-xs lg:text-sm bg-gray-900 min-h-0 font-mono"
+                ref={terminalRef}
+                className="flex-1 p-4 overflow-y-auto text-xs lg:text-sm bg-gray-900 min-h-0 terminal-output"
+                style={{
+                  fontFamily: 'var(--font-family, "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
+                  lineHeight: '1.5',
+                  letterSpacing: '-0.01em'
+                }}
               >
                 {terminalOutput.map((line, index) => (
-                  <div key={index} className="text-green-400 mb-1">{line}</div>
+                  <div 
+                    key={index} 
+                    className={`mb-1 ${
+                      line.includes('❌') ? 'text-red-400' :
+                      line.includes('✅') ? 'text-green-400' :
+                      line.includes('🚀') ? 'text-yellow-400' :
+                      line.includes('📦') ? 'text-blue-400' :
+                      line.includes('🔨') ? 'text-orange-400' :
+                      line.includes('💾') ? 'text-purple-400' :
+                      line.startsWith('$') ? 'text-gray-300 font-mono' :
+                      'text-gray-200'
+                    }`}
+                  >
+                    {line}
+                  </div>
                 ))}
-                <div className="flex items-center text-gray-300">
-                  <span className="text-blue-400 mr-2">$</span>
-                  <span>Listo para ejecutar comandos...</span>
+                
+                {/* Input de la terminal */}
+                <div className="flex items-center text-gray-300 font-mono mt-2">
+                  <span className="text-green-400 mr-2">$</span>
+                  <input
+                    ref={terminalInputRef}
+                    type="text"
+                    value={terminalInput}
+                    onChange={(e) => setTerminalInput(e.target.value)}
+                    onKeyPress={handleTerminalKeyPress}
+                    className="flex-1 bg-transparent border-none outline-none text-gray-100 placeholder-gray-500"
+                    placeholder="Escribe un comando (npm, git, ls, etc.)..."
+                    autoComplete="off"
+                    spellCheck="false"
+                  />
+                </div>
+              </div>
+
+              {/* Ayuda rápida de comandos */}
+              <div className="bg-gray-800/50 border-t border-gray-700 p-2 shrink-0">
+                <div className="flex flex-wrap gap-1 text-xs text-gray-400">
+                  <span className="px-2 py-1 bg-gray-700/50 rounded">npm install</span>
+                  <span className="px-2 py-1 bg-gray-700/50 rounded">npm run dev</span>
+                  <span className="px-2 py-1 bg-gray-700/50 rounded">git status</span>
+                  <span className="px-2 py-1 bg-gray-700/50 rounded">git add .</span>
+                  <span className="px-2 py-1 bg-gray-700/50 rounded">ls</span>
+                  <span className="px-2 py-1 bg-gray-700/50 rounded">clear</span>
                 </div>
               </div>
             </div>
