@@ -153,35 +153,35 @@ class CommandExecutor {
     switch (command) {
       case 'install':
         if (args.length === 1) {
-          return 'Instalando dependencias del package.json...\n✅ Dependencias instaladas correctamente';
+          return 'Instalando dependencias del package.json...\n Dependencias instaladas correctamente';
         } else {
-          return `Instalando paquete: ${args.slice(1).join(' ')}\n✅ Paquete instalado correctamente`;
+          return `Instalando paquete: ${args.slice(1).join(' ')}\n Paquete instalado correctamente`;
         }
       
       case 'start':
-        return 'Iniciando servidor de desarrollo...\n✅ Servidor corriendo en http://localhost:3000';
+        return 'Iniciando servidor de desarrollo...\n Servidor corriendo en http://localhost:3000';
       
       case 'run':
         const script = args[1];
         switch (script) {
           case 'dev':
-            return 'Ejecutando script dev...\n✅ Servidor de desarrollo iniciado';
+            return 'Ejecutando script dev...\n Servidor de desarrollo iniciado';
           case 'build':
-            return 'Ejecutando build...\n✅ Build completado exitosamente';
+            return 'Ejecutando build...\n Build completado exitosamente';
           case 'test':
-            return 'Ejecutando tests...\n✅ Todos los tests pasaron';
+            return 'Ejecutando tests...\n Todos los tests pasaron';
           default:
-            return `Ejecutando script: ${script}\n✅ Script ejecutado correctamente`;
+            return `Ejecutando script: ${script}\n Script ejecutado correctamente`;
         }
       
       case 'init':
-        return 'Inicializando proyecto npm...\n✅ package.json creado exitosamente';
+        return 'Inicializando proyecto npm...\n package.json creado exitosamente';
       
       case 'update':
-        return 'Actualizando dependencias...\n✅ Dependencias actualizadas correctamente';
+        return 'Actualizando dependencias...\n Dependencias actualizadas correctamente';
       
       case 'audit':
-        return 'Realizando auditoría de seguridad...\n✅ No se encontraron vulnerabilidades';
+        return 'Realizando auditoría de seguridad...\n No se encontraron vulnerabilidades';
       
       default:
         return `Comando npm '${command}' no reconocido`;
