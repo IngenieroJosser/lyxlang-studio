@@ -37,11 +37,7 @@ import {
   FiHardDrive
 } from 'react-icons/fi';
 import Image from 'next/image';
-import Prism from 'prismjs';
-import 'prismjs/components/prism-typescript';
-import 'prismjs/components/prism-javascript';
-import 'prismjs/components/prism-json';
-import 'prismjs/themes/prism-tomorrow.css';
+// Prism removed: not used and breaks SSR prerender
 
 // Carga diferida de Monaco Editor con configuración optimizada
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
