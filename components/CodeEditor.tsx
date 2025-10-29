@@ -1042,21 +1042,35 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                     value={code}
                     onChange={handleEditorChange}
                     beforeMount={(monaco) => {
-                      // Definir un tema personalizado con fondo transparente
-                      monaco.editor.defineTheme('transparent-dark', {
+                      monaco.editor.defineTheme('chocoSoftDark', {
                         base: 'vs-dark',
                         inherit: true,
-                        rules: [],
+                        rules: [
+                          { token: 'comment', foreground: '6b7280', fontStyle: 'italic' },       // Gris suave
+                          { token: 'keyword', foreground: '7dd3fc', fontStyle: 'bold' },         // Azul cielo
+                          { token: 'number', foreground: 'fca5a5' },                             // Rojo coral suave
+                          { token: 'string', foreground: '86efac' },                             // Verde menta
+                          { token: 'type', foreground: 'c4b5fd' },                               // Lila claro
+                          { token: 'function', foreground: 'f9a8d4' },                           // Rosa pastel
+                          { token: 'variable', foreground: 'e0e7ff' },                           // Blanco cálido
+                          { token: 'identifier', foreground: 'f8fafc' },                         // Texto principal
+                          { token: 'delimiter', foreground: '94a3b8' },                          // Gris azulado
+                          { token: 'operator', foreground: 'bae6fd' },                           // Azul suave
+                        ],
                         colors: {
                           'editor.background': '#00000000', // Transparente
-                          'editor.foreground': '#ffffff',
-                          'editor.lineHighlightBackground': '#ffffff10',
-                          'editor.selectionBackground': '#ffffff20',
-                          'editor.inactiveSelectionBackground': '#ffffff10',
-                          'editor.hoverHighlightBackground': '#ffffff15',
-                        }
+                          'editor.foreground': '#f1f5f9',
+                          'editorLineNumber.foreground': '#475569',
+                          'editorLineNumber.activeForeground': '#e2e8f0',
+                          'editorCursor.foreground': '#7dd3fc',
+                          'editor.selectionBackground': '#33415580',
+                          'editor.inactiveSelectionBackground': '#33415540',
+                          'editor.lineHighlightBackground': '#1e293b80',
+                          'editorIndentGuide.background': '#334155',
+                          'editorIndentGuide.activeBackground': '#64748b',
+                        },
                       });
-                    }}
+                    }}                    
                     onMount={(editor, monaco) => {
                       // Aplicar el tema personalizado
                       monaco.editor.setTheme('transparent-dark');
@@ -1098,7 +1112,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                       hideCursorInOverviewRuler: true,
                     }}
                   />
-
                 </div>
               </div>
 
