@@ -24,7 +24,19 @@ import {
   FiGitBranch,
   FiUser,
   FiMenu,
-  FiX
+  FiX,
+  FiCheck,
+  FiAlertCircle,
+  FiAlertTriangle,
+  FiInfo,
+  FiDownload,
+  FiUpload,
+  FiRefreshCw,
+  FiPackage,
+  FiServer,
+  FiCpu,
+  FiDatabase,
+  FiHardDrive
 } from 'react-icons/fi';
 import Image from 'next/image';
 import Prism from 'prismjs';
@@ -129,8 +141,9 @@ class CommandExecutor {
     this.setTerminalOutput = setTerminalOutput;
   }
 
-  private addOutput(message: string) {
-    this.setTerminalOutput(prev => [...prev, `${new Date().toLocaleTimeString()} ${message}`]);
+  private addOutput(message: string, icon?: React.ReactNode) {
+    const timestamp = new Date().toLocaleTimeString();
+    this.setTerminalOutput(prev => [...prev, `${timestamp} ${icon ? `${icon} ` : ''}${message}`]);
   }
 
   private findFile(path: string): FileNode | null {
@@ -147,123 +160,216 @@ class CommandExecutor {
     return search(this.fileSystem, path);
   }
 
-  private executeNpmCommand(args: string[]): string {
+  private executeNpmCommand(args: string[]): { output: string; icon: React.ReactNode } {
     const command = args[0];
     
     switch (command) {
       case 'install':
         if (args.length === 1) {
-          return 'Instalando dependencias del package.json...\n✅ Dependencias instaladas correctamente';
+          return {
+            output: 'Instalando dependencias del package.json...\n Dependencias instaladas correctamente',
+            icon: <FiPackage className="text-blue-400 inline mr-1" size={12} />
+          };
         } else {
-          return `Instalando paquete: ${args.slice(1).join(' ')}\n✅ Paquete instalado correctamente`;
+          return {
+            output: `Instalando paquete: ${args.slice(1).join(' ')}\n Paquete instalado correctamente`,
+            icon: <FiPackage className="text-blue-400 inline mr-1" size={12} />
+          };
         }
       
       case 'start':
-        return 'Iniciando servidor de desarrollo...\n✅ Servidor corriendo en http://localhost:3000';
+        return {
+          output: 'Iniciando servidor de desarrollo...\n Servidor corriendo en http://localhost:3000',
+          icon: <FiServer className="text-green-400 inline mr-1" size={12} />
+        };
       
       case 'run':
         const script = args[1];
         switch (script) {
           case 'dev':
-            return 'Ejecutando script dev...\n✅ Servidor de desarrollo iniciado';
+            return {
+              output: 'Ejecutando script dev...\n Servidor de desarrollo iniciado',
+              icon: <FiPlay className="text-green-400 inline mr-1" size={12} />
+            };
           case 'build':
-            return 'Ejecutando build...\n✅ Build completado exitosamente';
+            return {
+              output: 'Ejecutando build...\n Build completado exitosamente',
+              icon: <FiCpu className="text-yellow-400 inline mr-1" size={12} />
+            };
           case 'test':
-            return 'Ejecutando tests...\n✅ Todos los tests pasaron';
+            return {
+              output: 'Ejecutando tests...\n Todos los tests pasaron',
+              icon: <FiCheck className="text-green-400 inline mr-1" size={12} />
+            };
           default:
-            return `Ejecutando script: ${script}\n✅ Script ejecutado correctamente`;
+            return {
+              output: `Ejecutando script: ${script}\n Script ejecutado correctamente`,
+              icon: <FiPlay className="text-blue-400 inline mr-1" size={12} />
+            };
         }
       
       case 'init':
-        return 'Inicializando proyecto npm...\n✅ package.json creado exitosamente';
+        return {
+          output: 'Inicializando proyecto npm...\n package.json creado exitosamente',
+          icon: <FiFilePlus className="text-green-400 inline mr-1" size={12} />
+        };
       
       case 'update':
-        return 'Actualizando dependencias...\n✅ Dependencias actualizadas correctamente';
+        return {
+          output: 'Actualizando dependencias...\n Dependencias actualizadas correctamente',
+          icon: <FiRefreshCw className="text-blue-400 inline mr-1" size={12} />
+        };
       
       case 'audit':
-        return 'Realizando auditoría de seguridad...\n✅ No se encontraron vulnerabilidades';
+        return {
+          output: 'Realizando auditoría de seguridad...\n No se encontraron vulnerabilidades',
+          icon: <FiAlertCircle className="text-green-400 inline mr-1" size={12} />
+        };
       
       default:
-        return `Comando npm '${command}' no reconocido`;
+        return {
+          output: `Comando npm '${command}' no reconocido`,
+          icon: <FiAlertTriangle className="text-red-400 inline mr-1" size={12} />
+        };
     }
   }
 
-  private executeGitCommand(args: string[]): string {
+  private executeGitCommand(args: string[]): { output: string; icon: React.ReactNode } {
     const command = args[0];
     
     switch (command) {
       case 'init':
-        return 'Inicializando repositorio Git...\nRepositorio Git inicializado';
+        return {
+          output: 'Inicializando repositorio Git...\nRepositorio Git inicializado',
+          icon: <FiGitBranch className="text-orange-400 inline mr-1" size={12} />
+        };
       
       case 'status':
-        return 'Estado del repositorio:\n M src/main.ts\n?? nuevo_archivo.ts\n Working tree clean';
+        return {
+          output: 'Estado del repositorio:\n M src/main.ts\n?? nuevo_archivo.ts\n Working tree clean',
+          icon: <FiInfo className="text-blue-400 inline mr-1" size={12} />
+        };
       
       case 'add':
         if (args[1] === '.') {
-          return 'Añadiendo todos los archivos al staging...\n Archivos añadidos correctamente';
+          return {
+            output: 'Añadiendo todos los archivos al staging...\n Archivos añadidos correctamente',
+            icon: <FiPlus className="text-green-400 inline mr-1" size={12} />
+          };
         } else {
-          return `Añadiendo archivo: ${args[1]}\n Archivo añadido al staging`;
+          return {
+            output: `Añadiendo archivo: ${args[1]}\n Archivo añadido al staging`,
+            icon: <FiPlus className="text-green-400 inline mr-1" size={12} />
+          };
         }
       
       case 'commit':
         const message = args.slice(1).join(' ').replace(/-m\s*['"]?/, '').replace(/['"]?$/, '');
-        return `Haciendo commit: ${message || "Sin mensaje"}\nCommit realizado correctamente`;
+        return {
+          output: `Haciendo commit: ${message || "Sin mensaje"}\nCommit realizado correctamente`,
+          icon: <FiCheck className="text-green-400 inline mr-1" size={12} />
+        };
       
       case 'push':
-        return 'Enviando cambios al repositorio remoto...\n Cambios enviados correctamente';
+        return {
+          output: 'Enviando cambios al repositorio remoto...\n Cambios enviados correctamente',
+          icon: <FiUpload className="text-blue-400 inline mr-1" size={12} />
+        };
       
       case 'pull':
-        return 'Obteniendo cambios del repositorio remoto...\n Cambios obtenidos correctamente';
+        return {
+          output: 'Obteniendo cambios del repositorio remoto...\n Cambios obtenidos correctamente',
+          icon: <FiDownload className="text-blue-400 inline mr-1" size={12} />
+        };
       
       case 'branch':
-        return 'Ramas disponibles:\n* main\n  development\n  feature/nueva-funcionalidad';
+        return {
+          output: 'Ramas disponibles:\n* main\n  development\n  feature/nueva-funcionalidad',
+          icon: <FiGitBranch className="text-purple-400 inline mr-1" size={12} />
+        };
       
       case 'checkout':
-        return `Cambiando a rama: ${args[1]}\n Cambio de rama exitoso`;
+        return {
+          output: `Cambiando a rama: ${args[1]}\n Cambio de rama exitoso`,
+          icon: <FiGitBranch className="text-yellow-400 inline mr-1" size={12} />
+        };
       
       case 'clone':
-        return `Clonando repositorio: ${args[1]}\n Repositorio clonado correctamente`;
+        return {
+          output: `Clonando repositorio: ${args[1]}\n Repositorio clonado correctamente`,
+          icon: <FiDownload className="text-green-400 inline mr-1" size={12} />
+        };
       
       default:
-        return `Comando git '${command}' no reconocido`;
+        return {
+          output: `Comando git '${command}' no reconocido`,
+          icon: <FiAlertTriangle className="text-red-400 inline mr-1" size={12} />
+        };
     }
   }
 
-  private executeSystemCommand(args: string[]): string {
+  private executeSystemCommand(args: string[]): { output: string; icon: React.ReactNode } {
     const command = args[0];
     
     switch (command) {
       case 'ls':
-        return 'Contenido del directorio:\n src/\n package.json\n README.md\n tsconfig.json';
+        return {
+          output: 'Contenido del directorio:\n src/\n package.json\n README.md\n tsconfig.json',
+          icon: <FiFolder className="text-blue-400 inline mr-1" size={12} />
+        };
       
       case 'pwd':
-        return `Directorio actual: ${window.location.pathname}`;
+        return {
+          output: `Directorio actual: ${window.location.pathname}`,
+          icon: <FiHardDrive className="text-gray-400 inline mr-1" size={12} />
+        };
       
       case 'echo':
-        return args.slice(1).join(' ');
+        return {
+          output: args.slice(1).join(' '),
+          icon: <FiFile className="text-gray-400 inline mr-1" size={12} />
+        };
       
       case 'clear':
         this.setTerminalOutput([]);
-        return '';
+        return { output: '', icon: null };
       
       case 'cat':
         if (args[1]) {
           const file = this.findFile(args[1]);
-          return file?.content || `Archivo no encontrado: ${args[1]}`;
+          return {
+            output: file?.content || `Archivo no encontrado: ${args[1]}`,
+            icon: <FiFile className="text-blue-400 inline mr-1" size={12} />
+          };
         }
-        return 'Especifica un archivo para mostrar';
+        return {
+          output: 'Especifica un archivo para mostrar',
+          icon: <FiAlertCircle className="text-yellow-400 inline mr-1" size={12} />
+        };
       
       case 'mkdir':
-        return `Creando directorio: ${args[1]}\n Directorio creado correctamente`;
+        return {
+          output: `Creando directorio: ${args[1]}\n Directorio creado correctamente`,
+          icon: <FiFolderPlus className="text-green-400 inline mr-1" size={12} />
+        };
       
       case 'touch':
-        return `Creando archivo: ${args[1]}\n Archivo creado correctamente`;
+        return {
+          output: `Creando archivo: ${args[1]}\n Archivo creado correctamente`,
+          icon: <FiFilePlus className="text-green-400 inline mr-1" size={12} />
+        };
       
       case 'rm':
-        return `Eliminando: ${args[1]}\n Eliminado correctamente`;
+        return {
+          output: `Eliminando: ${args[1]}\n Eliminado correctamente`,
+          icon: <FiTrash2 className="text-red-400 inline mr-1" size={12} />
+        };
       
       default:
-        return `Comando '${command}' no encontrado`;
+        return {
+          output: `Comando '${command}' no encontrado`,
+          icon: <FiAlertCircle className="text-red-400 inline mr-1" size={12} />
+        };
     }
   }
 
@@ -274,36 +380,36 @@ class CommandExecutor {
     const args = trimmedCommand.split(' ').filter(arg => arg.length > 0);
     const command = args[0].toLowerCase();
 
-    this.addOutput(`$ ${trimmedCommand}`);
+    this.addOutput(`$ ${trimmedCommand}`, <FiTerminal className="text-green-400 inline mr-1" size={12} />);
 
     // Pequeño delay para simular procesamiento
     await new Promise(resolve => setTimeout(resolve, 100));
 
     try {
-      let output = '';
+      let result: { output: string; icon: React.ReactNode } = { output: '', icon: null };
 
       // Comandos npm
       if (command === 'npm') {
-        output = this.executeNpmCommand(args.slice(1));
+        result = this.executeNpmCommand(args.slice(1));
       }
       // Comandos git
       else if (command === 'git') {
-        output = this.executeGitCommand(args.slice(1));
+        result = this.executeGitCommand(args.slice(1));
       }
       // Comandos del sistema
       else {
-        output = this.executeSystemCommand(args);
+        result = this.executeSystemCommand(args);
       }
 
-      if (output) {
-        const lines = output.split('\n');
-        lines.forEach(line => this.addOutput(line));
+      if (result.output) {
+        const lines = result.output.split('\n');
+        lines.forEach(line => this.addOutput(line, result.icon));
       }
 
-      return output;
+      return result.output;
     } catch (error: any) {
       const errorMessage = `Error ejecutando comando: ${error.message}`;
-      this.addOutput(errorMessage);
+      this.addOutput(errorMessage, <FiAlertCircle className="text-red-400 inline mr-1" size={12} />);
       return errorMessage;
     }
   }
@@ -782,7 +888,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
 
     setFiles(updateFileContent(files));
     setSelectedFile({ ...selectedFile, content: code });
-    addTerminalOutput('📁 Archivo guardado correctamente');
+    addTerminalOutput('Archivo guardado correctamente', <FiCheck className="text-green-400 inline mr-1" size={12} />);
   };
 
   const deleteItem = (id: string) => {
@@ -806,19 +912,19 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
   const compileCode = async () => {
     if (!selectedFile) return;
 
-    addTerminalOutput('🔨 Compilando código TypeScript...');
+    addTerminalOutput('Compilando código TypeScript...', <FiCpu className="text-yellow-400 inline mr-1" size={12} />);
 
     try {
       const result = compiler.compile(code);
 
       if (result.success && result.output) {
-        addTerminalOutput('✅ Compilación completada exitosamente');
-        addTerminalOutput('📦 Código JavaScript generado:');
+        addTerminalOutput('Compilación completada exitosamente', <FiCheck className="text-green-400 inline mr-1" size={12} />);
+        addTerminalOutput('Código JavaScript generado:', <FiCode className="text-blue-400 inline mr-1" size={12} />);
         addTerminalOutput(result.output);
 
         // Ejecutar el código compilado
         try {
-          addTerminalOutput('🚀 Ejecutando código...');
+          addTerminalOutput('Ejecutando código...', <FiPlay className="text-green-400 inline mr-1" size={12} />);
           const consoleLog = console.log;
           const capturedOutput: string[] = [];
           console.log = (...args: any[]) => {
@@ -826,7 +932,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
               typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
             ).join(' ');
             capturedOutput.push(output);
-            addTerminalOutput(`📝 ${output}`);
+            addTerminalOutput(`${output}`, <FiTerminal className="text-gray-400 inline mr-1" size={12} />);
           };
 
           eval(result.output);
@@ -834,23 +940,24 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
           console.log = consoleLog;
 
           if (capturedOutput.length === 0) {
-            addTerminalOutput('ℹ️ El código se ejecutó sin salida en la consola');
+            addTerminalOutput('El código se ejecutó sin salida en la consola', <FiInfo className="text-blue-400 inline mr-1" size={12} />);
           }
         } catch (execError: any) {
-          addTerminalOutput(`❌ Error durante la ejecución: ${execError.message}`);
+          addTerminalOutput(`Error durante la ejecución: ${execError.message}`, <FiAlertCircle className="text-red-400 inline mr-1" size={12} />);
         }
       } else {
-        addTerminalOutput(`❌ Error de compilación: ${result.error}`);
+        addTerminalOutput(`Error de compilación: ${result.error}`, <FiAlertCircle className="text-red-400 inline mr-1" size={12} />);
       }
     } catch (error: any) {
-      addTerminalOutput(`💥 Error inesperado: ${error.message}`);
+      addTerminalOutput(`Error inesperado: ${error.message}`, <FiAlertTriangle className="text-red-400 inline mr-1" size={12} />);
     }
 
     setTerminalOpen(true);
   };
 
-  const addTerminalOutput = (message: string) => {
-    setTerminalOutput(prev => [...prev, `${new Date().toLocaleTimeString()} ${message}`]);
+  const addTerminalOutput = (message: string, icon?: React.ReactNode) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setTerminalOutput(prev => [...prev, `${timestamp} ${icon ? `${icon} ` : ''}${message}`]);
   };
 
   // Ejecutar comandos en la terminal
@@ -1075,7 +1182,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
 
         /* Estilos para la terminal con tipografía del sitio */
         .terminal-output {
-          font-family: var(--font-family, 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif) !important;
           line-height: 1.5;
           letter-spacing: -0.01em;
         }
@@ -1495,17 +1601,17 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                   <div 
                     key={index} 
                     className={`mb-1 ${
-                      line.includes('❌') ? 'text-red-400' :
-                      line.includes('✅') ? 'text-green-400' :
-                      line.includes('🚀') ? 'text-yellow-400' :
-                      line.includes('📦') ? 'text-blue-400' :
-                      line.includes('🔨') ? 'text-orange-400' :
-                      line.includes('💾') ? 'text-purple-400' :
+                      line.includes('<FiAlertCircle') ? 'text-red-400' :
+                      line.includes('<FiCheck') ? 'text-green-400' :
+                      line.includes('<FiPlay') ? 'text-yellow-400' :
+                      line.includes('<FiPackage') ? 'text-blue-400' :
+                      line.includes('<FiCpu') ? 'text-orange-400' :
+                      line.includes('<FiGitBranch') ? 'text-purple-400' :
                       line.startsWith('$') ? 'text-gray-300 font-mono' :
                       'text-gray-200'
                     }`}
                   >
-                    {line}
+                    <span dangerouslySetInnerHTML={{ __html: line.replace(/<([^>]+)>/g, '') }} />
                   </div>
                 ))}
                 
