@@ -783,6 +783,12 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
 
   const lineCount = useMemo(() => (code ? code.split('\n').length : 0), [code]);
 
+  // Estado de ejecución
+  const [isRunning, setIsRunning] = useState(false);
+  const [showRunPanel, setShowRunPanel] = useState(false);
+  const [runLogs, setRunLogs] = useState<Array<{ level: 'log' | 'warn' | 'error' | 'info'; message: string; time: string }>>([]);
+  const workerRef = useRef<Worker | null>(null);
+
   // Memoización de valores costosos
   const compiler = useMemo(() => new TypeScriptCompiler(), []);
   const commandExecutor = useMemo(() => new CommandExecutor(files, setFiles, setTerminalOutput), [files, setFiles]);
@@ -993,6 +999,107 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
     setTerminalOutput([]);
   }, []);
 
+  // Inicializar compilador en cliente
+  useEffect(() => {
+    compiler.initialize().catch(() => {});
+  }, [compiler]);
+
+  const appendRunLog = useCallback((level: 'log' | 'warn' | 'error' | 'info', message: string) => {
+    setRunLogs(prev => [...prev, { level, message, time: new Date().toLocaleTimeString() }].slice(-500));
+  }, []);
+
+  const stopRun = useCallback(() => {
+    if (workerRef.current) {
+      workerRef.current.terminate();
+      workerRef.current = null;
+    }
+    setIsRunning(false);
+    appendRunLog('info', 'Ejecución detenida');
+  }, [appendRunLog]);
+
+  const clearRun = useCallback(() => {
+    setRunLogs([]);
+  }, []);
+
+  const runCode = useCallback(async () => {
+    if (!selectedFile) return;
+    setShowRunPanel(true);
+    setIsRunning(true);
+    clearRun();
+
+    try {
+      const result = compiler.compile(code);
+      if (!result.success || !result.output) {
+        setIsRunning(false);
+        appendRunLog('error', result.error || 'Error de compilación desconocido');
+        return;
+      }
+
+      const workerSource = `
+        const send = (level, args) => {
+          try { postMessage({ type: 'log', level, message: args.map(a => {
+            try { return (typeof a === 'object' && a !== null) ? JSON.stringify(a) : String(a); }
+            catch(e){ return String(a); }
+          }).join(' ') }); } catch(e) {}
+        };
+        console.log = (...args) => send('log', args);
+        console.info = (...args) => send('info', args);
+        console.warn = (...args) => send('warn', args);
+        console.error = (...args) => send('error', args);
+        self.onmessage = (ev) => {
+          if (ev.data && ev.data.type === 'exec') {
+            const code = ev.data.payload;
+            try {
+              const fn = new Function(code);
+              fn();
+              postMessage({ type: 'done' });
+            } catch (err) {
+              postMessage({ type: 'log', level: 'error', message: (err && err.stack) ? String(err.stack) : String(err) });
+              postMessage({ type: 'done' });
+            }
+          }
+        };
+      `;
+
+      const blob = new Blob([workerSource], { type: 'application/javascript' });
+      const worker = new Worker(URL.createObjectURL(blob));
+      workerRef.current = worker;
+
+      const timeoutId = setTimeout(() => {
+        try { worker.terminate(); } catch {}
+        workerRef.current = null;
+        appendRunLog('warn', 'Tiempo de ejecución agotado (3s)');
+        setIsRunning(false);
+      }, 3000);
+
+      worker.onmessage = (ev: MessageEvent) => {
+        const data: any = ev.data;
+        if (data?.type === 'log') {
+          appendRunLog(data.level || 'log', data.message);
+        } else if (data?.type === 'done') {
+          clearTimeout(timeoutId);
+          try { worker.terminate(); } catch {}
+          workerRef.current = null;
+          setIsRunning(false);
+          appendRunLog('info', 'Ejecución finalizada');
+        }
+      };
+
+      worker.onerror = (e) => {
+        clearTimeout(timeoutId);
+        appendRunLog('error', e.message || 'Error en ejecución');
+        try { worker.terminate(); } catch {}
+        workerRef.current = null;
+        setIsRunning(false);
+      };
+
+      worker.postMessage({ type: 'exec', payload: result.output });
+    } catch (err: any) {
+      setIsRunning(false);
+      appendRunLog('error', err?.message || 'Fallo al ejecutar');
+    }
+  }, [appendRunLog, clearRun, code, compiler, selectedFile]);
+
   const saveFile = useCallback(() => {
     if (!selectedFile) return;
 
@@ -1138,6 +1245,14 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                 <span className="hidden sm:inline">Guardar</span>
               </button>
               <button
+                onClick={isRunning ? stopRun : runCode}
+                className={`flex items-center px-2 lg:px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 border border-white/5 ${isRunning ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg hover:shadow-red-500/25' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-blue-500/25'}`}
+                title={isRunning ? 'Detener ejecución' : 'Ejecutar'}
+              >
+                <FiPlay className={`mr-1 lg:mr-1.5 shrink-0 ${isRunning ? 'rotate-90' : ''}`} size={14} />
+                <span className="hidden sm:inline">{isRunning ? 'Detener' : 'Ejecutar'}</span>
+              </button>
+              <button
                 onClick={() => setTerminalOpen(!terminalOpen)}
                 className={`p-2 rounded-lg transition-colors border border-white/5 ${terminalOpen ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-gray-700/70'}`}
               >
@@ -1264,6 +1379,47 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                   />
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+        {/* Panel de ejecución */}
+        {showRunPanel && (
+          <div className="bg-gray-900/95 border-t border-gray-700/80 backdrop-blur-lg transition-all duration-300 flex flex-col shrink-0">
+            <div className="flex items-center justify-between px-4 py-2 bg-gray-800/90 border-b border-gray-700/80">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-blue-400" />
+                <span className="text-sm font-medium text-white">EJECUCIÓN</span>
+                {isRunning && <span className="text-xs text-blue-300">Corriendo…</span>}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={clearRun}
+                  className="px-2 py-1 text-xs rounded-md border border-white/5 hover:bg-gray-700/70 text-gray-300"
+                >
+                  Limpiar
+                </button>
+                <button
+                  onClick={() => setShowRunPanel(false)}
+                  className="px-2 py-1 text-xs rounded-md border border-white/5 hover:bg-gray-700/70 text-gray-300"
+                >
+                  Ocultar
+                </button>
+              </div>
+            </div>
+            <div className="max-h-60 overflow-y-auto p-3 text-xs lg:text-sm space-y-1">
+              {runLogs.length === 0 && (
+                <div className="text-gray-500">No hay salida aún. Ejecuta el archivo seleccionado.</div>
+              )}
+              {runLogs.map((l, i) => (
+                <div key={i} className="font-mono">
+                  <span className="text-gray-500 mr-2">{l.time}</span>
+                  <span className={
+                    l.level === 'error' ? 'text-red-300' : l.level === 'warn' ? 'text-yellow-300' : l.level === 'info' ? 'text-blue-300' : 'text-gray-200'
+                  }>
+                    {l.message}
+                  </span>
+                </div>
+              ))}
             </div>
           </div>
         )}
