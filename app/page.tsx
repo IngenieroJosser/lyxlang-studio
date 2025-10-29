@@ -14,7 +14,9 @@ import {
   FiZap,
   FiUsers,
   FiCoffee,
-  FiAward
+  FiAward,
+  FiUser,
+  FiMenu
 } from 'react-icons/fi';
 import Image from 'next/image';
 
@@ -23,6 +25,7 @@ const HomePage = () => {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isVisible, setIsVisible] = useState(false);
   const [isClient, setIsClient] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -123,62 +126,109 @@ const HomePage = () => {
       )}
 
       {/* Header */}
-      <header className="relative z-10 border-b border-gray-800">
-        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-500/20 rounded-xl border border-blue-500/30">
-              <Image
-                src="/favicon.ico"
-                alt="LyxLang logo"
-                width={32}
-                height={32}
-                className="object-cover rounded-xl"
-              />
-            </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+      <header className="relative z-20 border-b border-gray-800 bg-gray-900/50 backdrop-blur-md sticky top-0">
+        <div className="container mx-auto px-4 py-3 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <Image
+              src="/favicon.ico"
+              alt="LyxLang logo"
+              width={28}
+              height={28}
+              className="rounded-lg"
+            />
+            <span className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
               LyxLang Studio
             </span>
           </div>
 
-          <nav className="hidden md:flex items-center space-x-8">
-            <a
-              href="#features"
-              className="text-gray-400 hover:text-white transition-colors"
-            >
+          {/* 🔸 Menú Desktop */}
+          <nav className="hidden md:flex items-center gap-8">
+            <a href="#features" className="text-gray-400 hover:text-white transition">
               Funciones
             </a>
-            <a
-              href="#about"
-              className="text-gray-400 hover:text-white transition-colors"
-            >
+            <a href="#about" className="text-gray-400 hover:text-white transition">
               Comunidad
             </a>
             <a
               href="https://github.com/IngenieroJosser/lyxlang-studio"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gray-400 hover:text-white transition-colors"
+              className="text-gray-400 hover:text-white transition"
             >
               GitHub
             </a>
           </nav>
 
-          <button
-            onClick={() => router.push('/editor')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-blue-500/25 transform hover:scale-105"
-          >
-            Probar Ahora
-          </button>
+          {/* 🔸 Botones Desktop */}
+          <div className="hidden md:flex items-center gap-3">
+            <button
+              onClick={() => router.push('/iniciar-sesion')}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 text-gray-300 hover:text-white transition-all duration-200"
+            >
+              <FiUser size={18} />
+              Iniciar sesión
+            </button>
+
+            <button
+              onClick={() => router.push('/editor')}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-lg font-medium transition-all duration-200 shadow-lg hover:shadow-blue-500/25 transform hover:scale-105"
+            >
+              Probar
+            </button>
+          </div>
+
+          {/* 🔸 Mobile Menu */}
+          <div className="flex md:hidden items-center gap-3">
+            <button
+              onClick={() => router.push('/iniciar-sesion')}
+              className="p-2 rounded-md bg-gray-800 border border-gray-700 hover:bg-gray-700 text-gray-300 hover:text-white transition"
+            >
+              <FiUser size={20} />
+            </button>
+
+            <button
+              onClick={() => router.push('/editor')}
+              className="p-2 rounded-md bg-blue-600 hover:bg-blue-700 text-white transition"
+            >
+              <FiPlay size={20} />
+            </button>
+
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
+              className="p-2 rounded-md bg-gray-800 border border-gray-700 hover:bg-gray-700 text-gray-300 transition"
+            >
+              <FiMenu size={20} />
+            </button>
+          </div>
         </div>
+
+        {/* 🔹 Menú desplegable móvil */}
+        {menuOpen && (
+          <div className="md:hidden bg-gray-900/95 border-t border-gray-800 flex flex-col items-start px-6 py-4 space-y-4">
+            <a href="#features" className="text-gray-300 hover:text-white">
+              Funciones
+            </a>
+            <a href="#about" className="text-gray-300 hover:text-white">
+              Comunidad
+            </a>
+            <a
+              href="https://github.com/IngenieroJosser/lyxlang-studio"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-300 hover:text-white"
+            >
+              GitHub
+            </a>
+          </div>
+        )}
       </header>
 
       {/* Hero */}
       <section className="relative z-10 py-20 md:py-32 text-center">
         <div className="container mx-auto px-6">
           <div
-            className={`max-w-4xl mx-auto transition-all duration-1000 ${
-              isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
-            }`}
+            className={`max-w-4xl mx-auto transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10'
+              }`}
           >
             <div className="inline-flex items-center space-x-2 bg-gray-800/50 border border-gray-700 rounded-full px-4 py-2 mb-8">
               <FiStar className="text-yellow-400" size={16} />
@@ -324,6 +374,42 @@ const HomePage = () => {
       </footer>
 
       <style jsx>{`
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0px) rotate(0deg);
+          }
+          50% {
+            transform: translateY(-20px) rotate(5deg);
+          }
+        }
+
+        /* 🔹 Scrollbar personalizada global */
+        ::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+          background: #101829;
+        }
+
+        ::-webkit-scrollbar-thumb {
+          background: linear-gradient(180deg, #3b82f6, #9333ea);
+          border-radius: 10px;
+          border: 2px solid rgba(17, 17, 17, 0.8);
+          transition: background 0.3s ease;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+          background: linear-gradient(180deg, #60a5fa, #a855f7);
+        }
+
+        /* 🔸 Firefox */
+        * {
+          scrollbar-width: thin;
+          scrollbar-color: #6366f1 rgba(15, 15, 15, 0.7);
+        }
+
         @keyframes float {
           0%, 100% {
             transform: translateY(0px) rotate(0deg);

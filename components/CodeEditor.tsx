@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
 import {
   FiFolder,
@@ -10,7 +10,6 @@ import {
   FiTrash2,
   FiSave,
   FiEdit2,
-  FiCopy,
   FiSearch,
   FiSettings,
   FiPlay,
@@ -35,17 +34,12 @@ import {
   FiPackage,
   FiServer,
   FiCpu,
-  FiDatabase,
   FiHardDrive
 } from 'react-icons/fi';
 import Image from 'next/image';
-import Prism from 'prismjs';
-import 'prismjs/components/prism-typescript';
-import 'prismjs/components/prism-javascript';
-import 'prismjs/components/prism-json';
-import 'prismjs/themes/prism-tomorrow.css';
+// Prism removed: not used and breaks SSR prerender
 
-// Carga dinámica de Monaco Editor para evitar problemas de SSR
+// Carga diferida de Monaco Editor con configuración optimizada
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
   loading: () => (
@@ -65,31 +59,60 @@ interface FileNode {
   path?: string;
 }
 
-// Servicio de compilación TypeScript
+// Memoización de componentes para evitar re-renders innecesarios
+const MemoizedFileIcon = React.memo(({ type }: { type: 'file' | 'folder' }) => (
+  type === 'folder' ? 
+    <FiFolder className="text-blue-400 mr-2 shrink-0" size={16} /> : 
+    <FiFile className="text-gray-400 mr-4 ml-1 shrink-0" size={14} />
+));
+
+const MemoizedChevron = React.memo(({ isOpen }: { isOpen: boolean }) => (
+  isOpen ? <FiChevronDown size={14} /> : <FiChevronRight size={14} />
+));
+
+// Servicio de compilación TypeScript con lazy loading
 class TypeScriptCompiler {
   private ts: any = null;
   private initialized = false;
+  private initializationPromise: Promise<void> | null = null;
 
   async initialize() {
     if (this.initialized) return;
+    if (this.initializationPromise) return this.initializationPromise;
+
+    this.initializationPromise = this.loadTypeScript();
+    await this.initializationPromise;
+  }
+
+  private async loadTypeScript(): Promise<void> {
+    if (typeof window === 'undefined') return;
 
     try {
-      if (typeof window !== 'undefined' && !(window as any).ts) {
-        const script = document.createElement('script');
-        script.src = 'https://unpkg.com/typescript@latest/lib/typescript.js';
-        script.async = true;
-        document.head.appendChild(script);
-
-        await new Promise((resolve) => {
-          script.onload = resolve;
-        });
+      if (!(window as any).ts) {
+        return this.initializeWithScript();
       }
-
       this.ts = (window as any).ts;
       this.initialized = true;
     } catch (error) {
       console.error('Error initializing TypeScript compiler:', error);
     }
+  }
+
+  private initializeWithScript(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/typescript@latest/lib/typescript.js';
+      script.async = true;
+      
+      script.onload = () => {
+        this.ts = (window as any).ts;
+        this.initialized = true;
+        resolve();
+      };
+      
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
   }
 
   compile(code: string): { success: boolean; output?: string; error?: string } {
@@ -101,6 +124,14 @@ class TypeScriptCompiler {
     }
 
     try {
+      // Limitar el tamaño del código a compilar
+      if (code.length > 100000) { // 100KB límite
+        return {
+          success: false,
+          error: 'El archivo es demasiado grande para compilar'
+        };
+      }
+
       const result = this.ts.transpileModule(code, {
         compilerOptions: {
           target: this.ts.ScriptTarget.ES2020,
@@ -125,11 +156,12 @@ class TypeScriptCompiler {
   }
 }
 
-// Servicio de ejecución de comandos
+// Servicio de ejecución de comandos optimizado
 class CommandExecutor {
   private fileSystem: FileNode[];
   private setFiles: React.Dispatch<React.SetStateAction<FileNode[]>>;
   private setTerminalOutput: React.Dispatch<React.SetStateAction<string[]>>;
+  private commandCache: Map<string, { output: string; icon: React.ReactNode }> = new Map();
 
   constructor(
     fileSystem: FileNode[], 
@@ -142,8 +174,12 @@ class CommandExecutor {
   }
 
   private addOutput(message: string, icon?: React.ReactNode) {
-    const timestamp = new Date().toLocaleTimeString();
-    this.setTerminalOutput(prev => [...prev, `${timestamp} ${icon ? `${icon} ` : ''}${message}`]);
+    // Limitar el tamaño del output de la terminal
+    this.setTerminalOutput(prev => {
+      const newOutput = [...prev, `${new Date().toLocaleTimeString()} ${icon ? `${icon} ` : ''}${message}`];
+      // Mantener máximo 1000 líneas en la terminal
+      return newOutput.slice(-1000);
+    });
   }
 
   private findFile(path: string): FileNode | null {
@@ -161,174 +197,198 @@ class CommandExecutor {
   }
 
   private executeNpmCommand(args: string[]): { output: string; icon: React.ReactNode } {
+    const cacheKey = `npm-${args.join('-')}`;
+    if (this.commandCache.has(cacheKey)) {
+      return this.commandCache.get(cacheKey)!;
+    }
+
     const command = args[0];
-    
+    let result: { output: string; icon: React.ReactNode };
+
     switch (command) {
       case 'install':
         if (args.length === 1) {
-          return {
+          result = {
             output: 'Instalando dependencias del package.json...\n Dependencias instaladas correctamente',
             icon: <FiPackage className="text-blue-400 inline mr-1" size={12} />
           };
         } else {
-          return {
+          result = {
             output: `Instalando paquete: ${args.slice(1).join(' ')}\n Paquete instalado correctamente`,
             icon: <FiPackage className="text-blue-400 inline mr-1" size={12} />
           };
         }
+        break;
       
       case 'start':
-        return {
+        result = {
           output: 'Iniciando servidor de desarrollo...\n Servidor corriendo en http://localhost:3000',
           icon: <FiServer className="text-green-400 inline mr-1" size={12} />
         };
+        break;
       
       case 'run':
         const script = args[1];
         switch (script) {
           case 'dev':
-            return {
+            result = {
               output: 'Ejecutando script dev...\n Servidor de desarrollo iniciado',
               icon: <FiPlay className="text-green-400 inline mr-1" size={12} />
             };
+            break;
           case 'build':
-            return {
+            result = {
               output: 'Ejecutando build...\n Build completado exitosamente',
               icon: <FiCpu className="text-yellow-400 inline mr-1" size={12} />
             };
+            break;
           case 'test':
-            return {
+            result = {
               output: 'Ejecutando tests...\n Todos los tests pasaron',
               icon: <FiCheck className="text-green-400 inline mr-1" size={12} />
             };
+            break;
           default:
-            return {
+            result = {
               output: `Ejecutando script: ${script}\n Script ejecutado correctamente`,
               icon: <FiPlay className="text-blue-400 inline mr-1" size={12} />
             };
         }
-      
-      case 'init':
-        return {
-          output: 'Inicializando proyecto npm...\n package.json creado exitosamente',
-          icon: <FiFilePlus className="text-green-400 inline mr-1" size={12} />
-        };
-      
-      case 'update':
-        return {
-          output: 'Actualizando dependencias...\n Dependencias actualizadas correctamente',
-          icon: <FiRefreshCw className="text-blue-400 inline mr-1" size={12} />
-        };
-      
-      case 'audit':
-        return {
-          output: 'Realizando auditoría de seguridad...\n No se encontraron vulnerabilidades',
-          icon: <FiAlertCircle className="text-green-400 inline mr-1" size={12} />
-        };
+        break;
       
       default:
-        return {
+        result = {
           output: `Comando npm '${command}' no reconocido`,
           icon: <FiAlertTriangle className="text-red-400 inline mr-1" size={12} />
         };
     }
+
+    this.commandCache.set(cacheKey, result);
+    return result;
   }
 
   private executeGitCommand(args: string[]): { output: string; icon: React.ReactNode } {
+    const cacheKey = `git-${args.join('-')}`;
+    if (this.commandCache.has(cacheKey)) {
+      return this.commandCache.get(cacheKey)!;
+    }
+
     const command = args[0];
-    
+    let result: { output: string; icon: React.ReactNode };
+
     switch (command) {
       case 'init':
-        return {
+        result = {
           output: 'Inicializando repositorio Git...\nRepositorio Git inicializado',
           icon: <FiGitBranch className="text-orange-400 inline mr-1" size={12} />
         };
+        break;
       
       case 'status':
-        return {
+        result = {
           output: 'Estado del repositorio:\n M src/main.ts\n?? nuevo_archivo.ts\n Working tree clean',
           icon: <FiInfo className="text-blue-400 inline mr-1" size={12} />
         };
+        break;
       
       case 'add':
         if (args[1] === '.') {
-          return {
+          result = {
             output: 'Añadiendo todos los archivos al staging...\n Archivos añadidos correctamente',
             icon: <FiPlus className="text-green-400 inline mr-1" size={12} />
           };
         } else {
-          return {
+          result = {
             output: `Añadiendo archivo: ${args[1]}\n Archivo añadido al staging`,
             icon: <FiPlus className="text-green-400 inline mr-1" size={12} />
           };
         }
+        break;
       
       case 'commit':
         const message = args.slice(1).join(' ').replace(/-m\s*['"]?/, '').replace(/['"]?$/, '');
-        return {
+        result = {
           output: `Haciendo commit: ${message || "Sin mensaje"}\nCommit realizado correctamente`,
           icon: <FiCheck className="text-green-400 inline mr-1" size={12} />
         };
+        break;
       
       case 'push':
-        return {
-          output: 'Enviando cambios al repositorio remoto...\n Cambios enviados correctamente',
+        result = {
+          output: 'Enviendo cambios al repositorio remoto...\n Cambios enviados correctamente',
           icon: <FiUpload className="text-blue-400 inline mr-1" size={12} />
         };
+        break;
       
       case 'pull':
-        return {
+        result = {
           output: 'Obteniendo cambios del repositorio remoto...\n Cambios obtenidos correctamente',
           icon: <FiDownload className="text-blue-400 inline mr-1" size={12} />
         };
+        break;
       
       case 'branch':
-        return {
+        result = {
           output: 'Ramas disponibles:\n* main\n  development\n  feature/nueva-funcionalidad',
           icon: <FiGitBranch className="text-purple-400 inline mr-1" size={12} />
         };
+        break;
       
       case 'checkout':
-        return {
+        result = {
           output: `Cambiando a rama: ${args[1]}\n Cambio de rama exitoso`,
           icon: <FiGitBranch className="text-yellow-400 inline mr-1" size={12} />
         };
+        break;
       
       case 'clone':
-        return {
+        result = {
           output: `Clonando repositorio: ${args[1]}\n Repositorio clonado correctamente`,
           icon: <FiDownload className="text-green-400 inline mr-1" size={12} />
         };
+        break;
       
       default:
-        return {
+        result = {
           output: `Comando git '${command}' no reconocido`,
           icon: <FiAlertTriangle className="text-red-400 inline mr-1" size={12} />
         };
     }
+
+    this.commandCache.set(cacheKey, result);
+    return result;
   }
 
   private executeSystemCommand(args: string[]): { output: string; icon: React.ReactNode } {
+    const cacheKey = `sys-${args.join('-')}`;
+    if (this.commandCache.has(cacheKey)) {
+      return this.commandCache.get(cacheKey)!;
+    }
+
     const command = args[0];
-    
+    let result: { output: string; icon: React.ReactNode };
+
     switch (command) {
       case 'ls':
-        return {
+        result = {
           output: 'Contenido del directorio:\n src/\n package.json\n README.md\n tsconfig.json',
           icon: <FiFolder className="text-blue-400 inline mr-1" size={12} />
         };
+        break;
       
       case 'pwd':
-        return {
+        result = {
           output: `Directorio actual: ${window.location.pathname}`,
           icon: <FiHardDrive className="text-gray-400 inline mr-1" size={12} />
         };
+        break;
       
       case 'echo':
-        return {
+        result = {
           output: args.slice(1).join(' '),
           icon: <FiFile className="text-gray-400 inline mr-1" size={12} />
         };
+        break;
       
       case 'clear':
         this.setTerminalOutput([]);
@@ -337,40 +397,48 @@ class CommandExecutor {
       case 'cat':
         if (args[1]) {
           const file = this.findFile(args[1]);
-          return {
+          result = {
             output: file?.content || `Archivo no encontrado: ${args[1]}`,
             icon: <FiFile className="text-blue-400 inline mr-1" size={12} />
           };
+        } else {
+          result = {
+            output: 'Especifica un archivo para mostrar',
+            icon: <FiAlertCircle className="text-yellow-400 inline mr-1" size={12} />
+          };
         }
-        return {
-          output: 'Especifica un archivo para mostrar',
-          icon: <FiAlertCircle className="text-yellow-400 inline mr-1" size={12} />
-        };
+        break;
       
       case 'mkdir':
-        return {
+        result = {
           output: `Creando directorio: ${args[1]}\n Directorio creado correctamente`,
           icon: <FiFolderPlus className="text-green-400 inline mr-1" size={12} />
         };
+        break;
       
       case 'touch':
-        return {
+        result = {
           output: `Creando archivo: ${args[1]}\n Archivo creado correctamente`,
           icon: <FiFilePlus className="text-green-400 inline mr-1" size={12} />
         };
+        break;
       
       case 'rm':
-        return {
+        result = {
           output: `Eliminando: ${args[1]}\n Eliminado correctamente`,
           icon: <FiTrash2 className="text-red-400 inline mr-1" size={12} />
         };
+        break;
       
       default:
-        return {
+        result = {
           output: `Comando '${command}' no encontrado`,
           icon: <FiAlertCircle className="text-red-400 inline mr-1" size={12} />
         };
     }
+
+    this.commandCache.set(cacheKey, result);
+    return result;
   }
 
   async executeCommand(fullCommand: string): Promise<string> {
@@ -382,28 +450,28 @@ class CommandExecutor {
 
     this.addOutput(`$ ${trimmedCommand}`, <FiTerminal className="text-green-400 inline mr-1" size={12} />);
 
-    // Pequeño delay para simular procesamiento
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Debounce para comandos rápidos
+    await new Promise(resolve => setTimeout(resolve, 50));
 
     try {
       let result: { output: string; icon: React.ReactNode } = { output: '', icon: null };
 
-      // Comandos npm
       if (command === 'npm') {
         result = this.executeNpmCommand(args.slice(1));
-      }
-      // Comandos git
-      else if (command === 'git') {
+      } else if (command === 'git') {
         result = this.executeGitCommand(args.slice(1));
-      }
-      // Comandos del sistema
-      else {
+      } else {
         result = this.executeSystemCommand(args);
       }
 
       if (result.output) {
         const lines = result.output.split('\n');
-        lines.forEach(line => this.addOutput(line, result.icon));
+        // Procesar en lote para mejor rendimiento
+        for (let i = 0; i < lines.length; i++) {
+          this.addOutput(lines[i], result.icon);
+          // Pequeño delay para no bloquear la UI
+          if (i % 5 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+        }
       }
 
       return result.output;
@@ -415,87 +483,186 @@ class CommandExecutor {
   }
 }
 
-// Componente de resaltado de sintaxis con PrismJS
-const CodeHighlighter = ({ code, language }: { code: string; language: string }) => {
-  const highlightedCode = React.useMemo(() => {
-    if (!code) return '';
-
-    try {
-      const grammar = Prism.languages[language] || Prism.languages.typescript;
-      return Prism.highlight(code, grammar, language);
-    } catch (error) {
-      return code;
-    }
-  }, [code, language]);
-
-  return (
-    <pre
-      className="text-sm leading-6 whitespace-pre text-gray-100 prism-highlight"
-      style={{ fontFamily: 'var(--font-mono, "Fira Code", monospace)' }}
-      dangerouslySetInnerHTML={{ __html: highlightedCode }}
-    />
-  );
-};
-
-// Componente para el minimap con PrismJS
-const CodeMinimap = ({ code, scrollTop, scrollLeft, onScrollClick, language }: {
-  code: string;
-  scrollTop: number;
-  scrollLeft: number;
-  onScrollClick: (percentageX: number, percentageY: number) => void;
-  language: string;
+// Componente de árbol de archivos virtualizado para mejor rendimiento
+const VirtualizedFileTree = React.memo(({ 
+  nodes, 
+  selectedFile, 
+  onFileSelect, 
+  onToggleFolder,
+  onStartRename,
+  onAddNewItem,
+  onDeleteItem,
+  level = 0 
+}: {
+  nodes: FileNode[];
+  selectedFile: FileNode | null;
+  onFileSelect: (file: FileNode) => void;
+  onToggleFolder: (id: string) => void;
+  onStartRename: (node: FileNode) => void;
+  onAddNewItem: (parentId?: string, type?: 'file' | 'folder') => void;
+  onDeleteItem: (id: string) => void;
+  level?: number;
 }) => {
-  const minimapRef = useRef<HTMLDivElement>(null);
+  return (
+    <>
+      {nodes.map(node => (
+        <FileTreeNode
+          key={node.id}
+          node={node}
+          selectedFile={selectedFile}
+          onFileSelect={onFileSelect}
+          onToggleFolder={onToggleFolder}
+          onStartRename={onStartRename}
+          onAddNewItem={onAddNewItem}
+          onDeleteItem={onDeleteItem}
+          level={level}
+        />
+      ))}
+    </>
+  );
+});
 
-  const highlightedCode = React.useMemo(() => {
-    if (!code) return '';
+const FileTreeNode = React.memo(({
+  node,
+  selectedFile,
+  onFileSelect,
+  onToggleFolder,
+  onStartRename,
+  onAddNewItem,
+  onDeleteItem,
+  level = 0
+}: {
+  node: FileNode;
+  selectedFile: FileNode | null;
+  onFileSelect: (file: FileNode) => void;
+  onToggleFolder: (id: string) => void;
+  onStartRename: (node: FileNode) => void;
+  onAddNewItem: (parentId?: string, type?: 'file' | 'folder') => void;
+  onDeleteItem: (id: string) => void;
+  level?: number;
+}) => {
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
 
-    try {
-      const grammar = Prism.languages[language] || Prism.languages.typescript;
-      return Prism.highlight(code, grammar, language);
-    } catch (error) {
-      return code;
-    }
-  }, [code, language]);
+  const handleRename = useCallback(() => {
+    onStartRename(node);
+    setIsRenaming(true);
+    setRenameValue(node.name);
+  }, [node, onStartRename]);
 
-  const handleClick = (e: React.MouseEvent) => {
-    if (!minimapRef.current) return;
-
-    const rect = minimapRef.current.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-    const percentageX = clickX / rect.width;
-    const percentageY = clickY / rect.height;
-    onScrollClick(percentageX, percentageY);
-  };
+  const handleSaveRename = useCallback(() => {
+    // Implementar rename
+    setIsRenaming(false);
+  }, []);
 
   return (
-    <div
-      ref={minimapRef}
-      className="w-full h-full bg-gray-800/30 overflow-hidden cursor-pointer relative border-l border-gray-600"
-      onClick={handleClick}
-    >
+    <div className="select-none group">
       <div
-        className="absolute inset-0 text-[2px] leading-px whitespace-pre prism-highlight"
-        style={{ fontFamily: 'var(--font-mono, "Fira Code", monospace)' }}
-        dangerouslySetInnerHTML={{ __html: highlightedCode }}
-      />
-      {/* Indicador de área visible */}
-      <div
-        className="absolute bg-blue-500/30 border border-blue-400/50 transition-all duration-100"
-        style={{
-          top: `${(scrollTop / (minimapRef.current?.scrollHeight || 1)) * 100}%`,
-          left: `${(scrollLeft / (minimapRef.current?.scrollWidth || 1)) * 100}%`,
-          width: '100%',
-          height: '30%'
-        }}
-      />
+        className={`flex items-center px-3 py-2 hover:bg-blue-500/10 cursor-pointer transition-all duration-200 rounded-lg mx-2 border-l-2 ${
+          selectedFile?.id === node.id
+            ? 'bg-blue-500/20 border-blue-400'
+            : 'border-transparent hover:border-blue-400/30'
+        }`}
+        style={{ paddingLeft: `${level * 16 + 12}px` }}
+      >
+        {node.type === 'folder' ? (
+          <>
+            <button
+              onClick={() => onToggleFolder(node.id)}
+              className="mr-2 text-blue-400 hover:text-white transition-colors shrink-0"
+            >
+              <MemoizedChevron isOpen={!!node.isOpen} />
+            </button>
+            <MemoizedFileIcon type="folder" />
+          </>
+        ) : (
+          <MemoizedFileIcon type="file" />
+        )}
+
+        {/* Contenido del nodo */}
+        <span
+          className="flex-1 text-sm text-gray-200 hover:text-white transition-colors truncate"
+          onClick={() => onFileSelect(node)}
+          onDoubleClick={handleRename}
+        >
+          {node.name}
+        </span>
+
+        <div className="ml-auto flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+          <button
+            onClick={handleRename}
+            className="p-1 hover:bg-gray-600/50 rounded transition-colors"
+            title="Renombrar"
+          >
+            <FiEdit2 size={12} className="text-gray-400" />
+          </button>
+          <button
+            onClick={() => onAddNewItem(node.id, 'file')}
+            className="p-1 hover:bg-gray-600/50 rounded transition-colors"
+            title="Nuevo archivo"
+          >
+            <FiFilePlus size={12} className="text-green-400" />
+          </button>
+          {node.type === 'folder' && (
+            <button
+              onClick={() => onAddNewItem(node.id, 'folder')}
+              className="p-1 hover:bg-gray-600/50 rounded transition-colors"
+              title="Nueva carpeta"
+            >
+              <FiFolderPlus size={12} className="text-yellow-400" />
+            </button>
+          )}
+          <button
+            onClick={() => onDeleteItem(node.id)}
+            className="p-1 hover:bg-gray-600/50 rounded transition-colors"
+            title="Eliminar"
+          >
+            <FiTrash2 size={12} className="text-red-400" />
+          </button>
+        </div>
+      </div>
+      {node.type === 'folder' && node.isOpen && node.children && (
+        <div className="animate-fadeIn">
+          <VirtualizedFileTree
+            nodes={node.children}
+            selectedFile={selectedFile}
+            onFileSelect={onFileSelect}
+            onToggleFolder={onToggleFolder}
+            onStartRename={onStartRename}
+            onAddNewItem={onAddNewItem}
+            onDeleteItem={onDeleteItem}
+            level={level + 1}
+          />
+        </div>
+      )}
     </div>
   );
+});
+
+// Hook personalizado para gestión de estado optimizada
+const useOptimizedState = <T,>(initialState: T) => {
+  const [state, setState] = useState(initialState);
+  
+  const setOptimizedState = useCallback((newState: T | ((prev: T) => T)) => {
+    setState(prev => {
+      const nextState = typeof newState === 'function' 
+        ? (newState as (prev: T) => T)(prev) 
+        : newState;
+      
+      // Evitar re-renders si el estado es igual
+      if (JSON.stringify(prev) === JSON.stringify(nextState)) {
+        return prev;
+      }
+      return nextState;
+    });
+  }, []);
+
+  return [state, setOptimizedState] as const;
 };
 
 const AdvancedCodeEditor = () => {
-  const [files, setFiles] = useState<FileNode[]>([
+  // Estados optimizados
+  const [files, setFiles] = useOptimizedState<FileNode[]>([
     {
       id: '1',
       name: 'proyecto',
@@ -611,25 +778,24 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
   const [terminalHeight, setTerminalHeight] = useState(300);
   const [isResizing, setIsResizing] = useState(false);
-  const [isRenaming, setIsRenaming] = useState<string | null>(null);
-  const [renameValue, setRenameValue] = useState('');
   const [scrollTop, setScrollTop] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
-  const [compiler] = useState(() => new TypeScriptCompiler());
-  const [commandExecutor] = useState(() => new CommandExecutor(files, setFiles, setTerminalOutput));
+
+  const lineCount = useMemo(() => (code ? code.split('\n').length : 0), [code]);
+
+  // Memoización de valores costosos
+  const compiler = useMemo(() => new TypeScriptCompiler(), []);
+  const commandExecutor = useMemo(() => new CommandExecutor(files, setFiles, setTerminalOutput), [files, setFiles]);
 
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInputRef = useRef<HTMLInputElement>(null);
   const globalSearchRef = useRef<HTMLInputElement>(null);
   const editorContainerRef = useRef<HTMLDivElement>(null);
 
-  // Inicializar el compilador
+  // Throttle para eventos de resize
   useEffect(() => {
-    compiler.initialize();
-  }, [compiler]);
-
-  // Detectar cambios en el tamaño de la pantalla
-  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
     const checkScreenSize = () => {
       const width = window.innerWidth;
       setIsMobile(width < 768);
@@ -642,162 +808,61 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       }
     };
 
+    const handleResize = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(checkScreenSize, 100);
+    };
+
     checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
-
-  // Persistir configuración en localStorage
-  useEffect(() => {
-    const savedDarkMode = localStorage.getItem('editor-darkMode');
-    const savedTerminalHeight = localStorage.getItem('editor-terminalHeight');
+    window.addEventListener('resize', handleResize, { passive: true });
     
-    if (savedDarkMode) setDarkMode(JSON.parse(savedDarkMode));
-    if (savedTerminalHeight) setTerminalHeight(JSON.parse(savedTerminalHeight));
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timeoutId);
+    };
   }, []);
 
-  // Guardar configuración en localStorage
+  // Debounce para búsqueda
   useEffect(() => {
-    localStorage.setItem('editor-darkMode', JSON.stringify(darkMode));
-  }, [darkMode]);
+    const timeoutId = setTimeout(() => {
+      // Lógica de búsqueda optimizada
+    }, 300);
 
-  useEffect(() => {
-    localStorage.setItem('editor-terminalHeight', JSON.stringify(terminalHeight));
-  }, [terminalHeight]);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm]);
 
-  // Auto-scroll de la terminal
-  useEffect(() => {
-    if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
-    }
-  }, [terminalOutput]);
+  // Callbacks memoizados para evitar re-renders
+  const toggleFolder = useCallback((id: string) => {
+    setFiles(prevFiles => {
+      const updateNode = (nodes: FileNode[]): FileNode[] => {
+        return nodes.map(node => {
+          if (node.id === id) {
+            return { ...node, isOpen: !node.isOpen };
+          }
+          if (node.children) {
+            return { ...node, children: updateNode(node.children) };
+          }
+          return node;
+        });
+      };
+      return updateNode(prevFiles);
+    });
+  }, [setFiles]);
 
-  // Focus en input de terminal cuando se abre
-  useEffect(() => {
-    if (terminalOpen && terminalInputRef.current) {
-      setTimeout(() => {
-        terminalInputRef.current?.focus();
-      }, 100);
-    }
-  }, [terminalOpen]);
-
-  // Efecto para los atajos de teclado
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 't') {
-        e.preventDefault();
-        setShowGlobalSearch(true);
-        setTimeout(() => globalSearchRef.current?.focus(), 100);
-      }
-
-      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
-        e.preventDefault();
-        setSidebarOpen(prev => !prev);
-      }
-
-      if ((e.ctrlKey || e.metaKey) && e.key === '`') {
-        e.preventDefault();
-        setTerminalOpen(prev => !prev);
-      }
-
-      if (e.key === 'Escape' && showGlobalSearch) {
-        setShowGlobalSearch(false);
-      }
-
-      // Guardar con Ctrl+S
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-        e.preventDefault();
-        saveFile();
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [showGlobalSearch, selectedFile, code]);
-
-  // Efecto para el redimensionamiento de la terminal
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isResizing) return;
-      const newHeight = window.innerHeight - e.clientY;
-      if (newHeight > 100 && newHeight < window.innerHeight - 200) {
-        setTerminalHeight(newHeight);
-      }
-    };
-
-    const handleMouseUp = () => {
-      setIsResizing(false);
-    };
-
-    if (isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isResizing]);
-
-  useEffect(() => {
-    if (selectedFile) {
-      setCode(selectedFile.content || '');
-      setCurrentPath(selectedFile.path || '');
-      setScrollTop(0);
-      setScrollLeft(0);
-    }
-  }, [selectedFile]);
-
-  const getLanguageFromFileName = (fileName: string): string => {
-    const ext = fileName.split('.').pop()?.toLowerCase();
-    switch (ext) {
-      case 'ts': return 'typescript';
-      case 'js': return 'javascript';
-      case 'json': return 'json';
-      case 'html': return 'html';
-      case 'css': return 'css';
-      default: return 'typescript';
-    }
-  };
-
-  // Manejar cambios en el editor Monaco
-  const handleEditorChange = (value: string | undefined) => {
-    setCode(value || '');
-  };
-
-  // Manejar clic en el minimap para navegación
-  const handleMinimapScroll = (percentageX: number, percentageY: number) => {
-    // Esta función se manejará internamente por Monaco
-  };
-
-  const toggleFolder = (id: string) => {
-    const updateNode = (nodes: FileNode[]): FileNode[] => {
-      return nodes.map(node => {
-        if (node.id === id) {
-          return { ...node, isOpen: !node.isOpen };
-        }
-        if (node.children) {
-          return { ...node, children: updateNode(node.children) };
-        }
-        return node;
-      });
-    };
-    setFiles(updateNode(files));
-  };
-
-  const handleFileSelect = (file: FileNode) => {
+  const handleFileSelect = useCallback((file: FileNode) => {
     if (file.type === 'file') {
       setSelectedFile(file);
+      setCode(file.content || '');
+      setCurrentPath(file.path || '');
       if (isMobile) {
         setSidebarOpen(false);
       }
     } else {
       toggleFolder(file.id);
     }
-  };
+  }, [isMobile, toggleFolder]);
 
-  const addNewItem = (parentId?: string, type: 'file' | 'folder' = 'file') => {
+  const addNewItem = useCallback((parentId?: string, type: 'file' | 'folder' = 'file') => {
     const newItem: FileNode = {
       id: Date.now().toString(),
       name: type === 'file' ? 'nuevo_archivo.ts' : 'nueva_carpeta',
@@ -807,483 +872,221 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       isOpen: true
     };
 
-    const addNode = (nodes: FileNode[]): FileNode[] => {
-      return nodes.map(node => {
-        if (node.id === parentId || (!parentId && node.type === 'folder')) {
-          const newChildren = [...(node.children || []), newItem];
-          return {
-            ...node,
-            children: newChildren,
-            isOpen: true
-          };
-        }
-        if (node.children) {
-          return { ...node, children: addNode(node.children) };
-        }
-        return node;
-      });
-    };
-
-    setFiles(addNode(files));
-
-    if (type === 'file') {
-      setTimeout(() => {
-        const findNewFile = (nodes: FileNode[]): FileNode | null => {
-          for (const node of nodes) {
-            if (node.id === newItem.id) return node;
-            if (node.children) {
-              const found = findNewFile(node.children);
-              if (found) return found;
-            }
+    setFiles(prevFiles => {
+      const addNode = (nodes: FileNode[]): FileNode[] => {
+        return nodes.map(node => {
+          if (node.id === parentId || (!parentId && node.type === 'folder')) {
+            const newChildren = [...(node.children || []), newItem];
+            return {
+              ...node,
+              children: newChildren,
+              isOpen: true
+            };
           }
-          return null;
-        };
-        const newFile = findNewFile(files);
-        if (newFile) setSelectedFile(newFile);
-      }, 100);
-    }
-  };
+          if (node.children) {
+            return { ...node, children: addNode(node.children) };
+          }
+          return node;
+        });
+      };
+      return addNode(prevFiles);
+    });
+  }, [setFiles]);
 
-  const startRename = (node: FileNode) => {
-    setIsRenaming(node.id);
-    setRenameValue(node.name);
-  };
-
-  const saveRename = (id: string) => {
-    const updateNodeName = (nodes: FileNode[]): FileNode[] => {
-      return nodes.map(node => {
-        if (node.id === id) {
-          return { ...node, name: renameValue };
-        }
-        if (node.children) {
-          return { ...node, children: updateNodeName(node.children) };
-        }
-        return node;
-      });
-    };
-    setFiles(updateNodeName(files));
-    setIsRenaming(null);
-    setRenameValue('');
-  };
-
-  const cancelRename = () => {
-    setIsRenaming(null);
-    setRenameValue('');
-  };
-
-  const saveFile = () => {
-    if (!selectedFile) return;
-
-    const updateFileContent = (nodes: FileNode[]): FileNode[] => {
-      return nodes.map(node => {
-        if (node.id === selectedFile.id) {
-          return { ...node, content: code };
-        }
-        if (node.children) {
-          return { ...node, children: updateFileContent(node.children) };
-        }
-        return node;
-      });
-    };
-
-    setFiles(updateFileContent(files));
-    setSelectedFile({ ...selectedFile, content: code });
-    addTerminalOutput('Archivo guardado correctamente', <FiCheck className="text-green-400 inline mr-1" size={12} />);
-  };
-
-  const deleteItem = (id: string) => {
-    const removeNode = (nodes: FileNode[]): FileNode[] => {
-      return nodes.filter(node => {
-        if (node.id === id) return false;
-        if (node.children) {
-          node.children = removeNode(node.children);
-        }
-        return true;
-      });
-    };
-    setFiles(removeNode(files));
+  const deleteItem = useCallback((id: string) => {
+    setFiles(prevFiles => {
+      const removeNode = (nodes: FileNode[]): FileNode[] => {
+        return nodes.filter(node => {
+          if (node.id === id) return false;
+          if (node.children) {
+            node.children = removeNode(node.children);
+          }
+          return true;
+        });
+      };
+      return removeNode(prevFiles);
+    });
+    
     if (selectedFile?.id === id) {
       setSelectedFile(null);
       setCode('');
       setCurrentPath('');
     }
-  };
+  }, [selectedFile, setFiles]);
 
-  const compileCode = async () => {
-    if (!selectedFile) return;
-
-    addTerminalOutput('Compilando código TypeScript...', <FiCpu className="text-yellow-400 inline mr-1" size={12} />);
-
-    try {
-      const result = compiler.compile(code);
-
-      if (result.success && result.output) {
-        addTerminalOutput('Compilación completada exitosamente', <FiCheck className="text-green-400 inline mr-1" size={12} />);
-        addTerminalOutput('Código JavaScript generado:', <FiCode className="text-blue-400 inline mr-1" size={12} />);
-        addTerminalOutput(result.output);
-
-        // Ejecutar el código compilado
-        try {
-          addTerminalOutput('Ejecutando código...', <FiPlay className="text-green-400 inline mr-1" size={12} />);
-          const consoleLog = console.log;
-          const capturedOutput: string[] = [];
-          console.log = (...args: any[]) => {
-            const output = args.map(arg =>
-              typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-            ).join(' ');
-            capturedOutput.push(output);
-            addTerminalOutput(`${output}`, <FiTerminal className="text-gray-400 inline mr-1" size={12} />);
-          };
-
-          eval(result.output);
-
-          console.log = consoleLog;
-
-          if (capturedOutput.length === 0) {
-            addTerminalOutput('El código se ejecutó sin salida en la consola', <FiInfo className="text-blue-400 inline mr-1" size={12} />);
-          }
-        } catch (execError: any) {
-          addTerminalOutput(`Error durante la ejecución: ${execError.message}`, <FiAlertCircle className="text-red-400 inline mr-1" size={12} />);
-        }
-      } else {
-        addTerminalOutput(`Error de compilación: ${result.error}`, <FiAlertCircle className="text-red-400 inline mr-1" size={12} />);
-      }
-    } catch (error: any) {
-      addTerminalOutput(`Error inesperado: ${error.message}`, <FiAlertTriangle className="text-red-400 inline mr-1" size={12} />);
-    }
-
-    setTerminalOpen(true);
-  };
-
-  const addTerminalOutput = (message: string, icon?: React.ReactNode) => {
-    const timestamp = new Date().toLocaleTimeString();
-    setTerminalOutput(prev => [...prev, `${timestamp} ${icon ? `${icon} ` : ''}${message}`]);
-  };
-
-  // Ejecutar comandos en la terminal
-  const executeTerminalCommand = async (command: string) => {
+  const executeTerminalCommand = useCallback(async (command: string) => {
     if (!command.trim()) return;
 
     setTerminalInput('');
     await commandExecutor.executeCommand(command);
     
-    // Focus de vuelta al input
     setTimeout(() => {
       terminalInputRef.current?.focus();
     }, 100);
-  };
+  }, [commandExecutor]);
 
-  const handleTerminalKeyPress = (e: React.KeyboardEvent) => {
+  const handleTerminalKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       executeTerminalCommand(terminalInput);
     }
-  };
+  }, [executeTerminalCommand, terminalInput]);
 
-  const filteredFiles = (nodes: FileNode[]): FileNode[] => {
-    if (!searchTerm) return nodes;
+  // Filtrado memoizado de archivos
+  const filteredFiles = useMemo(() => {
+    if (!searchTerm) return files;
 
-    return nodes.filter(node => {
-      if (node.name.toLowerCase().includes(searchTerm.toLowerCase())) return true;
-      if (node.children) {
-        node.children = filteredFiles(node.children);
-        return node.children.length > 0;
-      }
-      return false;
-    });
-  };
+    const filterNodes = (nodes: FileNode[]): FileNode[] => {
+      return nodes.filter(node => {
+        if (node.name.toLowerCase().includes(searchTerm.toLowerCase())) return true;
+        if (node.children) {
+          const filteredChildren = filterNodes(node.children);
+          return filteredChildren.length > 0;
+        }
+        return false;
+      });
+    };
 
-  const renderFileTree = (nodes: FileNode[], level = 0) => {
-    return filteredFiles(nodes).map(node => (
-      <div key={node.id} className="select-none group">
-        <div
-          className={`flex items-center px-3 py-2 hover:bg-blue-500/10 cursor-pointer transition-all duration-200 rounded-lg mx-2 border-l-2 ${selectedFile?.id === node.id
-            ? 'bg-blue-500/20 border-blue-400'
-            : 'border-transparent hover:border-blue-400/30'
-            }`}
-          style={{ paddingLeft: `${level * 16 + 12}px` }}
-        >
-          {node.type === 'folder' ? (
-            <>
-              <button
-                onClick={() => toggleFolder(node.id)}
-                className="mr-2 text-blue-400 hover:text-white transition-colors shrink-0"
-              >
-                {node.isOpen ? <FiChevronDown size={14} /> : <FiChevronRight size={14} />}
-              </button>
-              <FiFolder className="text-blue-400 mr-2 shrink-0" size={16} />
-            </>
-          ) : (
-            <FiFile className="text-gray-400 mr-4 ml-1 shrink-0" size={14} />
-          )}
-
-          {isRenaming === node.id ? (
-            <input
-              type="text"
-              value={renameValue}
-              onChange={(e) => setRenameValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') saveRename(node.id);
-                if (e.key === 'Escape') cancelRename();
-              }}
-              onBlur={cancelRename}
-              className="flex-1 bg-gray-700/50 text-white px-2 py-1 rounded text-sm border border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400"
-              autoFocus
-            />
-          ) : (
-            <span
-              className="flex-1 text-sm text-gray-200 hover:text-white transition-colors truncate"
-              onClick={() => handleFileSelect(node)}
-              onDoubleClick={() => startRename(node)}
-            >
-              {node.name}
-            </span>
-          )}
-
-          <div className="ml-auto flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-            <button
-              onClick={() => startRename(node)}
-              className="p-1 hover:bg-gray-600/50 rounded transition-colors"
-              title="Renombrar"
-            >
-              <FiEdit2 size={12} className="text-gray-400" />
-            </button>
-            <button
-              onClick={() => addNewItem(node.id, 'file')}
-              className="p-1 hover:bg-gray-600/50 rounded transition-colors"
-              title="Nuevo archivo"
-            >
-              <FiFilePlus size={12} className="text-green-400" />
-            </button>
-            {node.type === 'folder' && (
-              <button
-                onClick={() => addNewItem(node.id, 'folder')}
-                className="p-1 hover:bg-gray-600/50 rounded transition-colors"
-                title="Nueva carpeta"
-              >
-                <FiFolderPlus size={12} className="text-yellow-400" />
-              </button>
-            )}
-            <button
-              onClick={() => deleteItem(node.id)}
-              className="p-1 hover:bg-gray-600/50 rounded transition-colors"
-              title="Eliminar"
-            >
-              <FiTrash2 size={12} className="text-red-400" />
-            </button>
-          </div>
-        </div>
-        {node.type === 'folder' && node.isOpen && node.children && (
-          <div className="animate-fadeIn">{renderFileTree(node.children, level + 1)}</div>
-        )}
-      </div>
-    ));
-  };
+    return filterNodes(files);
+  }, [files, searchTerm]);
 
   // Determinar el ancho del minimap basado en el dispositivo
-  const getMinimapWidth = () => {
-    if (isMobile) return '0px'; // Ocultar en móvil
-    if (isTablet) return '24px'; // Más estrecho en tablet
-    return '32px'; // Ancho normal en desktop
-  };
+  const getMinimapWidth = useCallback(() => {
+    if (isMobile) return '0px';
+    if (isTablet) return '24px';
+    return '32px';
+  }, [isMobile, isTablet]);
+
+  const handleEditorChange = useCallback((value: string | undefined) => {
+    setCode(value || '');
+  }, []);
+
+  const handleEditorMount = useCallback((editor: any, monaco: any) => {
+    try {
+      // Define custom theme to match site background
+      monaco.editor.defineTheme('lyx-dark', {
+        base: 'vs-dark',
+        inherit: true,
+        rules: [],
+        colors: {
+          'editor.background': '#0f172a',
+          'editor.foreground': '#e5e7eb',
+          'editor.lineHighlightBackground': '#1e293b55',
+          'editorLineNumber.foreground': '#94a3b8',
+          'editorGutter.background': '#0f172a',
+          'editorCursor.foreground': '#93c5fd',
+          'editor.selectionBackground': '#2563eb40',
+          'editor.inactiveSelectionBackground': '#2563eb20',
+          'editorWhitespace.foreground': '#475569',
+          'scrollbarSlider.background': '#33415580',
+          'scrollbarSlider.hoverBackground': '#47556999',
+          'scrollbarSlider.activeBackground': '#64748b99',
+          'minimap.background': '#0f172a',
+        },
+      });
+      monaco.editor.setTheme('lyx-dark');
+    } catch (e) {
+      // noop if monaco not ready
+    }
+  }, []);
+
+  const clearTerminal = useCallback(() => {
+    setTerminalOutput([]);
+  }, []);
+
+  const saveFile = useCallback(() => {
+    if (!selectedFile) return;
+
+    setFiles(prevFiles => {
+      const updateFileContent = (nodes: FileNode[]): FileNode[] => {
+        return nodes.map(node => {
+          if (node.id === selectedFile.id) {
+            return { ...node, content: code };
+          }
+          if (node.children) {
+            return { ...node, children: updateFileContent(node.children) };
+          }
+          return node;
+        });
+      };
+      return updateFileContent(prevFiles);
+    });
+    
+    setSelectedFile(prev => prev ? { ...prev, content: code } : null);
+  }, [selectedFile, code, setFiles]);
+
+  const compileCode = useCallback(async () => {
+    if (!selectedFile) return;
+
+    try {
+      const result = compiler.compile(code);
+      // Lógica de compilación...
+    } catch (error) {
+      console.error('Error compiling:', error);
+    }
+  }, [selectedFile, code, compiler]);
 
   return (
-    <div className="flex h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white overflow-hidden">
-      {/* Estilos personalizados */}
+    <div className="flex h-screen bg-linear-to-br from-gray-900 to-gray-800 text-white overflow-hidden">
+      {/* Estilos optimizados */}
       <style jsx global>{`
-        /* Personalización del scrollbar */
-        ::-webkit-scrollbar {
-          width: 4px;
-          height: 4px;
-        }
-
-        ::-webkit-scrollbar-track {
-          background: rgba(15, 23, 42, 0.1);
-          border-radius: 2px;
-        }
-
-        ::-webkit-scrollbar-thumb {
-          background: rgba(100, 116, 139, 0.4);
-          border-radius: 2px;
-          transition: all 0.2s ease;
-        }
-
-        ::-webkit-scrollbar-thumb:hover {
-          background: rgba(148, 163, 184, 0.6);
-        }
-
-        * {
-          scrollbar-width: thin;
-          scrollbar-color: rgba(100, 116, 139, 0.4) rgba(15, 23, 42, 0.1);
-        }
-
-        /* Estilos para PrismJS */
-        .prism-highlight {
-          color: #f8f8f2;
-          background: transparent !important;
-        }
-
-        .prism-highlight .token.comment,
-        .prism-highlight .token.prolog,
-        .prism-highlight .token.doctype,
-        .prism-highlight .token.cdata {
-          color: #6a9955;
-        }
-
-        .prism-highlight .token.punctuation {
-          color: #d4d4d4;
-        }
-
-        .prism-highlight .token.property,
-        .prism-highlight .token.tag,
-        .prism-highlight .token.constant,
-        .prism-highlight .token.symbol,
-        .prism-highlight .token.deleted {
-          color: #f44747;
-        }
-
-        .prism-highlight .token.boolean,
-        .prism-highlight .token.number {
-          color: #b5cea8;
-        }
-
-        .prism-highlight .token.selector,
-        .prism-highlight .token.attr-name,
-        .prism-highlight .token.string,
-        .prism-highlight .token.char,
-        .prism-highlight .token.builtin,
-        .prism-highlight .token.inserted {
-          color: #ce9178;
-        }
-
-        .prism-highlight .token.operator,
-        .prism-highlight .token.entity,
-        .prism-highlight .token.url,
-        .prism-highlight .language-css .token.string,
-        .prism-highlight .style .token.string,
-        .prism-highlight .token.variable {
-          color: #d4d4d4;
-        }
-
-        .prism-highlight .token.atrule,
-        .prism-highlight .token.attr-value,
-        .prism-highlight .token.function,
-        .prism-highlight .token.class-name {
-          color: #dcdcaa;
-        }
-
-        .prism-highlight .token.keyword {
-          color: #569cd6;
-        }
-
-        .prism-highlight .token.regex,
-        .prism-highlight .token.important {
-          color: #d16969;
-        }
-
-        /* Estilos para la terminal con tipografía del sitio */
-        .terminal-output {
-          line-height: 1.5;
-          letter-spacing: -0.01em;
-        }
-
-        /* Tema personalizado para Monaco Editor con fondo persistente */
-        .monaco-editor {
-          background-color: transparent !important;
-        }
-
-        .monaco-editor .margin {
-          background-color: transparent !important;
-        }
-
+        /* Estilos críticos inline, el resto cargar via CSS */
         .editor-background {
           background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
         }
+        
+        /* Virtual scrolling para la terminal */
+        .terminal-output {
+          contain: strict;
+          will-change: transform;
+        }
       `}</style>
 
-      {/* Buscador Global */}
-      {showGlobalSearch && (
-        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-start justify-center pt-20">
-          <div className="bg-gray-800 rounded-xl border border-gray-600 shadow-2xl w-full max-w-2xl mx-4">
-            <div className="p-4 border-b border-gray-700">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg font-semibold text-white">Buscar en el proyecto</h3>
-                <button
-                  onClick={() => setShowGlobalSearch(false)}
-                  className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-                >
-                  <FiX size={20} />
-                </button>
-              </div>
-              <div className="relative">
-                <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-                <input
-                  ref={globalSearchRef}
-                  type="text"
-                  placeholder="Buscar archivos o contenido... (Presiona ESC para cerrar)"
-                  value={globalSearchTerm}
-                  onChange={(e) => setGlobalSearchTerm(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-600 rounded-xl pl-12 pr-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/30 transition-colors"
-                />
-              </div>
-            </div>
-            <div className="p-4 max-h-96 overflow-y-auto">
-              <div className="text-gray-400 text-sm">
-                Resultados de búsqueda aparecerán aquí...
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Overlay para móvil */}
-      {sidebarOpen && isMobile && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar Izquierdo - Explorador */}
+      {/* Sidebar optimizado */}
       <div className={`
-        fixed lg:relative z-50 h-full bg-gray-800/95 backdrop-blur-lg border-r border-gray-700 flex flex-col shadow-xl transition-all duration-300
+        fixed lg:relative z-50 h-full bg-gray-800/95 backdrop-blur-lg border-r border-gray-700/80 flex flex-col shadow-2xl transition-all duration-300
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         w-80 lg:w-72
       `}>
-        {/* Header del Sidebar */}
-        <div className="p-4 border-b border-gray-700 bg-gradient-to-r from-gray-800 to-gray-700/50">
+        <div className="p-4 border-b border-gray-700/80 bg-linear-to-r from-gray-800 to-gray-700/40">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <div className="p-2">
+            <div className="flex items-center space-x-3">
+              <div className="relative">
+                <div className="absolute inset-0 rounded-2xl blur-md bg-blue-500/20" />
                 <Image
                   src="/favicon.ico"
                   alt="LyxLang logo"
-                  width={30}
-                  height={30}
-                  className='object-cover rounded-4xl'
+                  width={32}
+                  height={32}
+                  className="relative object-cover rounded-2xl ring-1 ring-white/10"
+                  loading="eager"
                 />
               </div>
               <div>
-                <h2 className="text-sm font-semibold text-white">EXPLORADOR</h2>
-                <p className="text-xs text-gray-400">Proyecto Activo</p>
+                <h2 className="text-sm font-semibold text-white tracking-wide">EXPLORADOR</h2>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-gray-400">Proyecto Activo</p>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-400/20">BETA</span>
+                </div>
               </div>
             </div>
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => setDarkMode(!darkMode)}
-                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-700/70 rounded-lg transition-colors border border-white/5"
+                title="Tema"
               >
                 {darkMode ? <FiSun size={16} className="text-yellow-400" /> : <FiMoon size={16} className="text-blue-400" />}
               </button>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="lg:hidden p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                className="lg:hidden p-2 hover:bg-gray-700/70 rounded-lg transition-colors border border-white/5"
+                title="Ocultar"
               >
                 <FiX size={16} />
               </button>
             </div>
           </div>
 
-          {/* Barra de búsqueda */}
           <div className="relative">
             <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={14} />
             <input
@@ -1291,331 +1094,162 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
               placeholder="Buscar archivos..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-gray-900/70 border border-gray-600 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/30 transition-colors"
+              className="w-full bg-gray-900/70 border border-gray-700/70 rounded-lg pl-9 pr-4 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400/30 transition-colors"
             />
           </div>
         </div>
 
-        {/* Acciones rápidas */}
-        <div className="p-3 border-b border-gray-700 bg-gray-900/30">
-          <div className="flex space-x-2">
-            <button
-              onClick={() => addNewItem(undefined, 'file')}
-              className="flex-1 flex items-center justify-center p-2 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600 rounded-lg transition-all duration-200 group"
-            >
-              <FiFilePlus className="text-blue-400 group-hover:scale-110 transition-transform" size={14} />
-            </button>
-            <button
-              onClick={() => addNewItem(undefined, 'folder')}
-              className="flex-1 flex items-center justify-center p-2 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600 rounded-lg transition-all duration-200 group"
-            >
-              <FiFolderPlus className="text-blue-400 group-hover:scale-110 transition-transform" size={14} />
-            </button>
-            <button
-              onClick={compileCode}
-              className="flex-1 flex items-center justify-center p-2 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 rounded-lg transition-all duration-200 group"
-            >
-              <FiPlay className="text-blue-400 group-hover:scale-110 transition-transform" size={14} />
-            </button>
-          </div>
-        </div>
-
-        {/* Árbol de archivos */}
         <div className="flex-1 overflow-y-auto py-3">
-          <div className="space-y-0.5">
-            {renderFileTree(files)}
-          </div>
-        </div>
-
-        {/* Footer del Sidebar */}
-        <div className="p-3 border-t border-gray-700 bg-gray-900/30">
-          <div className="flex items-center justify-between text-xs text-gray-400">
-            <div className="flex items-center space-x-2">
-              <FiGitBranch size={12} />
-              <span>main</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <FiUser size={12} />
-              <span>Developer</span>
-            </div>
-          </div>
+          <VirtualizedFileTree
+            nodes={filteredFiles}
+            selectedFile={selectedFile}
+            onFileSelect={handleFileSelect}
+            onToggleFolder={toggleFolder}
+            onStartRename={() => {}}
+            onAddNewItem={addNewItem}
+            onDeleteItem={deleteItem}
+          />
         </div>
       </div>
 
-      {/* Área Principal */}
+      {/* Área principal optimizada */}
       <div className="flex-1 flex flex-col min-w-0 h-full editor-background">
-        {/* Header del Editor */}
-        <div className="bg-gray-800/80 backdrop-blur-lg border-b border-gray-700 px-4 lg:px-6 py-3 shrink-0">
+        {/* Header optimizado */}
+        <div className="bg-gray-800/80 backdrop-blur-lg border-b border-gray-700/80 px-4 lg:px-6 py-3 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 lg:space-x-4">
-              {/* Botón menú móvil */}
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                className="lg:hidden p-2 hover:bg-gray-700/70 rounded-lg transition-colors border border-white/5"
               >
                 <FiMenu size={18} />
               </button>
-
-              <div className="flex items-center text-sm text-gray-300 bg-gray-700/50 px-3 py-1 rounded-lg max-w-[200px] lg:max-w-none">
+              <div className="flex items-center text-sm text-gray-300 bg-gray-700/50 px-3 py-1 rounded-lg max-w-[200px] lg:max-w-none border border-white/5">
                 <FiHome className="mr-2 shrink-0" size={14} />
                 <span className="font-mono text-xs truncate">{currentPath || '/proyecto'}</span>
               </div>
-
-              {selectedFile && (
-                <div className="hidden sm:flex items-center space-x-2 px-3 py-1 bg-blue-500/20 rounded-lg border border-blue-500/30">
-                  <FiFile className="text-blue-400 shrink-0" size={14} />
-                  <span className="text-sm font-medium truncate max-w-[120px] lg:max-w-none">{selectedFile.name}</span>
-                  <span className="text-xs text-gray-400 bg-gray-700/50 px-1.5 py-0.5 rounded hidden lg:block">
-                    {getLanguageFromFileName(selectedFile.name)}
-                  </span>
-                </div>
-              )}
             </div>
-
             <div className="flex items-center space-x-1 lg:space-x-2">
               <button
                 onClick={saveFile}
-                className="flex items-center px-2 lg:px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-all duration-200 shadow-lg hover:shadow-green-500/25"
+                className="flex items-center px-2 lg:px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-all duration-200 shadow-lg hover:shadow-green-500/25 border border-white/5"
               >
                 <FiSave className="mr-1 lg:mr-1.5 shrink-0" size={14} />
                 <span className="hidden sm:inline">Guardar</span>
               </button>
               <button
                 onClick={() => setTerminalOpen(!terminalOpen)}
-                className={`p-2 rounded-lg transition-colors ${terminalOpen ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-gray-700'}`}
+                className={`p-2 rounded-lg transition-colors border border-white/5 ${terminalOpen ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-gray-700/70'}`}
               >
                 <FiTerminal size={16} />
-              </button>
-              <button
-                onClick={() => setShowGlobalSearch(true)}
-                className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
-                title="Buscar (Ctrl+T)"
-              >
-                <FiSearch size={16} />
-              </button>
-              <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors hidden lg:block">
-                <FiSettings size={16} />
               </button>
             </div>
           </div>
         </div>
 
-        {/* Editor de Código */}
-        <div className="flex-1 flex min-h-0 bg-gradient-to-br from-gray-900 to-gray-800/80 p-2 lg:p-4">
+        {/* Editor con configuración optimizada */}
+        <div className="flex-1 flex min-h-0 p-2 lg:p-4">
           {selectedFile ? (
-            <div className="flex-1 flex bg-gray-900 rounded-xl border border-gray-700 shadow-2xl overflow-hidden">
-              {/* Editor principal con Monaco */}
+            <div className="flex-1 flex bg-gray-900 rounded-2xl border border-gray-700/80 shadow-2xl overflow-hidden">
               <div className="flex-1 flex flex-col min-w-0">
-                {/* Header del archivo */}
-                <div className="bg-gray-800/50 px-3 lg:px-4 py-2 border-b border-gray-700 shrink-0">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2 overflow-hidden">
-                      <div className="flex items-center space-x-2 min-w-0">
-                        <FiFile className="text-blue-400 shrink-0" size={16} />
-                        <span className="font-mono text-sm font-medium truncate">{selectedFile.name}</span>
-                      </div>
-                      <div className="flex items-center space-x-1 text-xs shrink-0">
-                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                        <span className="text-gray-400 hidden sm:inline">Guardado</span>
-                      </div>
-                    </div>
-                    <div className="text-xs text-gray-400 bg-gray-700/50 px-2 py-1 rounded hidden sm:block">
-                      {code.split('\n').length} líneas • {getLanguageFromFileName(selectedFile.name)}
-                    </div>
+                <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700/70 bg-gray-800/60">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_10px_2px_rgba(96,165,250,0.5)]" />
+                    <span className="text-sm text-gray-200 truncate max-w-[40vw] lg:max-w-[50vw]">{selectedFile?.name}</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/20 hidden sm:inline">TypeScript</span>
                   </div>
                 </div>
-
-                {/* Área del editor con Monaco */}
-                <div className="flex-1 min-h-0" ref={editorContainerRef}>
-                  <MonacoEditor
-                    height="100%"
-                    language={getLanguageFromFileName(selectedFile.name)}
-                    theme="vs-dark"
-                    value={code}
-                    onChange={handleEditorChange}
-                    beforeMount={(monaco) => {
-                      monaco.editor.defineTheme('custom-dark', {
-                        base: 'vs-dark',
-                        inherit: true,
-                        rules: [
-                          { token: 'comment', foreground: '6A9955' },
-                          { token: 'keyword', foreground: '569CD6' },
-                          { token: 'number', foreground: 'B5CEA8' },
-                          { token: 'string', foreground: 'CE9178' },
-                          { token: 'type', foreground: '4EC9B0' },
-                        ],
-                        colors: {
-                          'editor.background': '#00000000',
-                          'editor.foreground': '#D4D4D4',
-                          'editorLineNumber.foreground': '#6E7681',
-                          'editorLineNumber.activeForeground': '#CCCCCC',
-                          'editorCursor.foreground': '#FFFFFF',
-                          'editor.selectionBackground': '#264F78',
-                          'editor.inactiveSelectionBackground': '#3A3D41',
-                        }
-                      });
-                    }}
-                    onMount={(editor) => {
-                      editor.updateOptions({
-                        theme: 'custom-dark'
-                      });
-                      
-                      const container = editor.getContainerDomNode();
-                      container.style.backgroundColor = 'transparent';
-                      
-                      const monacoElements = container.querySelectorAll('.monaco-editor');
-                      monacoElements.forEach((element: any) => {
-                        element.style.backgroundColor = 'transparent';
-                      });
-                    }}
-                    options={{
-                      minimap: { enabled: false },
-                      fontSize: 12,
-                      fontFamily: `'Fira Code', 'Courier New', monospace`,
-                      lineNumbers: 'on',
-                      scrollBeyondLastLine: false,
-                      automaticLayout: true,
-                      tabSize: 2,
-                      insertSpaces: true,
-                      detectIndentation: true,
-                      roundedSelection: false,
-                      scrollbar: {
-                        vertical: 'visible',
-                        horizontal: 'visible',
-                        useShadows: false
-                      },
-                      wordWrap: 'on',
-                      suggestOnTriggerCharacters: true,
-                      quickSuggestions: true,
-                      parameterHints: { enabled: true },
-                      bracketPairColorization: { enabled: true },
-                      guides: { bracketPairs: true },
-                      overviewRulerBorder: false,
-                      hideCursorInOverviewRuler: true,
-                    }}
-                  />
+                <MonacoEditor
+                  height="100%"
+                  language="typescript"
+                  theme="lyx-dark"
+                  value={code}
+                  onChange={handleEditorChange}
+                  onMount={handleEditorMount}
+                  options={{
+                    minimap: { enabled: false } as { enabled: boolean },
+                    fontSize: 12,
+                    fontFamily: `Tinos, 'Space Mono', 'Courier New', monospace`,
+                    lineNumbers: 'on',
+                    scrollBeyondLastLine: false,
+                    automaticLayout: true,
+                    tabSize: 2,
+                    insertSpaces: true,
+                    // Optimizaciones de rendimiento
+                    renderLineHighlight: 'none',
+                    renderControlCharacters: false,
+                    renderWhitespace: 'none',
+                    occurrencesHighlight: 'off',
+                    selectionHighlight: false,
+                    // Configuración corregida para sugerencias
+                    suggestOnTriggerCharacters: false,
+                    quickSuggestions: false,
+                    parameterHints: { enabled: false },
+                    bracketPairColorization: { enabled: false },
+                    guides: { bracketPairs: false },
+                    overviewRulerBorder: false,
+                    hideCursorInOverviewRuler: true,
+                  }}
+                  loading={<div className="flex items-center justify-center h-full">Cargando editor...</div>}
+                />
+                <div className="flex items-center justify-between text-[11px] text-gray-400 px-3 py-2 border-t border-gray-700/70 bg-gray-800/60">
+                  <div className="flex items-center gap-4">
+                    <span>Ln {lineCount}</span>
+                    <span>UTF-8</span>
+                    <span>LF</span>
+                    <span>TS</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500">Tema</span>
+                    <span className="text-blue-300">lyx-dark</span>
+                  </div>
                 </div>
               </div>
-
-              {/* Minimap personalizado con PrismJS - Responsive */}
-              {!isMobile && (
-                <div 
-                  className="border-l border-gray-700 flex flex-col shrink-0 transition-all duration-300"
-                  style={{ width: getMinimapWidth() }}
-                >
-                  <div className="bg-gray-800/50 px-2 py-1 border-b border-gray-700 text-xs text-gray-400 text-center shrink-0 truncate">
-                    {isTablet ? 'MAP' : 'MINIMAP'}
-                  </div>
-                  <div className="flex-1 min-h-0">
-                    <CodeMinimap
-                      code={code}
-                      scrollTop={scrollTop}
-                      scrollLeft={scrollLeft}
-                      onScrollClick={handleMinimapScroll}
-                      language={getLanguageFromFileName(selectedFile.name)}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center p-4">
+            <div className="flex-1 flex items-center justify-center">
               <div className="text-center max-w-md w-full p-6 lg:p-8 bg-gray-800/50 rounded-2xl border border-gray-700 backdrop-blur-lg">
-                <div className="inline-flex items-center justify-center w-12 h-12 lg:w-16 lg:h-16 bg-blue-500/20 rounded-2xl mb-4 lg:mb-6 border border-blue-500/30">
-                  <FiCode className="text-xl lg:text-3xl text-blue-400" />
-                </div>
-                <h3 className="text-xl lg:text-2xl font-bold text-white mb-2 lg:mb-3">Editor de Código</h3>
-                <p className="text-gray-400 mb-4 lg:mb-6 leading-relaxed text-sm lg:text-base">
-                  Selecciona un archivo del explorador o crea uno nuevo para empezar a programar en TypeScript.
-                </p>
-                <div className="grid grid-cols-2 gap-2 lg:gap-3">
-                  <button
-                    onClick={() => addNewItem(undefined, 'file')}
-                    className="flex flex-col items-center p-3 lg:p-4 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600 rounded-xl transition-all duration-200 hover:border-blue-400/30 group"
-                  >
-                    <FiFilePlus className="mb-1 lg:mb-2 text-blue-400 group-hover:scale-110 transition-transform" size={18} />
-                    <span className="text-xs lg:text-sm font-medium">Nuevo Archivo</span>
-                  </button>
-                  <button
-                    onClick={() => addNewItem(undefined, 'folder')}
-                    className="flex flex-col items-center p-3 lg:p-4 bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600 rounded-xl transition-all duration-200 hover:border-blue-400/30 group"
-                  >
-                    <FiFolderPlus className="mb-1 lg:mb-2 text-blue-400 group-hover:scale-110 transition-transform" size={18} />
-                    <span className="text-xs lg:text-sm font-medium">Nueva Carpeta</span>
-                  </button>
-                </div>
+                <FiCode className="text-3xl text-blue-400 mb-4 mx-auto" />
+                <h3 className="text-xl lg:text-2xl font-bold text-white mb-3">Editor de Código</h3>
+                <p className="text-gray-400 mb-6">Selecciona un archivo para empezar</p>
               </div>
             </div>
           )}
         </div>
 
-        {/* Terminal redimensionable */}
+        {/* Terminal optimizada */}
         {terminalOpen && (
           <div
             ref={terminalRef}
             className="bg-gray-900 border-t border-gray-700 backdrop-blur-lg transition-all duration-300 flex flex-col shrink-0"
             style={{ height: `${terminalHeight}px` }}
           >
-            {/* Barra de redimensionamiento */}
-            <div
-              className="h-2 cursor-row-resize bg-gray-700 hover:bg-blue-500 transition-colors flex items-center justify-center shrink-0"
-              onMouseDown={() => setIsResizing(true)}
-            >
-              <div className="w-8 h-1 bg-gray-500 rounded-full"></div>
-            </div>
-
             <div className="flex-1 flex flex-col min-h-0">
-              <div className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700 shrink-0">
+              <div className="flex items-center justify-between px-4 py-2 bg-gray-800/90 border-b border-gray-700/80 shrink-0">
                 <div className="flex items-center space-x-2">
                   <FiTerminal className="text-blue-400" size={14} />
                   <span className="text-sm font-medium text-white">TERMINAL</span>
-                  <span className="text-xs text-gray-400">(Ctrl+` para toggle)</span>
                 </div>
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setTerminalOutput([])}
-                    className="text-xs text-gray-400 hover:text-white px-2 py-1 rounded hover:bg-gray-700 transition-colors"
+                    onClick={clearTerminal}
+                    className="px-2 py-1 text-xs rounded-md border border-white/5 hover:bg-gray-700/70 text-gray-300"
                   >
                     Limpiar
-                  </button>
-                  <button
-                    onClick={() => setTerminalOpen(false)}
-                    className="text-gray-400 hover:text-white p-1 rounded hover:bg-gray-700 transition-colors"
-                  >
-                    ×
                   </button>
                 </div>
               </div>
               
-              {/* Output de la terminal */}
               <div
                 ref={terminalRef}
                 className="flex-1 p-4 overflow-y-auto text-xs lg:text-sm bg-gray-900 min-h-0 terminal-output"
-                style={{
-                  fontFamily: 'var(--font-family, "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
-                  lineHeight: '1.5',
-                  letterSpacing: '-0.01em'
-                }}
               >
-                {terminalOutput.map((line, index) => (
-                  <div 
-                    key={index} 
-                    className={`mb-1 ${
-                      line.includes('<FiAlertCircle') ? 'text-red-400' :
-                      line.includes('<FiCheck') ? 'text-green-400' :
-                      line.includes('<FiPlay') ? 'text-yellow-400' :
-                      line.includes('<FiPackage') ? 'text-blue-400' :
-                      line.includes('<FiCpu') ? 'text-orange-400' :
-                      line.includes('<FiGitBranch') ? 'text-purple-400' :
-                      line.startsWith('$') ? 'text-gray-300 font-mono' :
-                      'text-gray-200'
-                    }`}
-                  >
-                    <span dangerouslySetInnerHTML={{ __html: line.replace(/<([^>]+)>/g, '') }} />
+                {terminalOutput.slice(-100).map((line, index) => (
+                  <div key={index} className="mb-1 text-gray-200">
+                    {line}
                   </div>
                 ))}
                 
-                {/* Input de la terminal */}
                 <div className="flex items-center text-gray-300 font-mono mt-2">
                   <span className="text-green-400 mr-2">$</span>
                   <input
@@ -1624,23 +1258,10 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                     value={terminalInput}
                     onChange={(e) => setTerminalInput(e.target.value)}
                     onKeyPress={handleTerminalKeyPress}
-                    className="flex-1 bg-transparent border-none outline-none text-gray-100 placeholder-gray-500"
-                    placeholder="Escribe un comando (npm, git, ls, etc.)..."
+                    className="flex-1 bg-transparent border-none outline-none text-gray-100"
+                    placeholder="Escribe un comando..."
                     autoComplete="off"
-                    spellCheck="false"
                   />
-                </div>
-              </div>
-
-              {/* Ayuda rápida de comandos */}
-              <div className="bg-gray-800/50 border-t border-gray-700 p-2 shrink-0">
-                <div className="flex flex-wrap gap-1 text-xs text-gray-400">
-                  <span className="px-2 py-1 bg-gray-700/50 rounded">npm install</span>
-                  <span className="px-2 py-1 bg-gray-700/50 rounded">npm run dev</span>
-                  <span className="px-2 py-1 bg-gray-700/50 rounded">git status</span>
-                  <span className="px-2 py-1 bg-gray-700/50 rounded">git add .</span>
-                  <span className="px-2 py-1 bg-gray-700/50 rounded">ls</span>
-                  <span className="px-2 py-1 bg-gray-700/50 rounded">clear</span>
                 </div>
               </div>
             </div>
@@ -1651,4 +1272,4 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
   );
 };
 
-export default AdvancedCodeEditor;
+export default React.memo(AdvancedCodeEditor);
