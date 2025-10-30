@@ -42,10 +42,52 @@ import Image from 'next/image';
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
   loading: () => (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-gray-400">Cargando editor...</div>
+    <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      {/* Logo LyxLang animado */}
+      <div className="relative mb-8">
+        <div className="absolute inset-0 rounded-3xl blur-xl bg-blue-500/20 animate-pulse" />
+        <div className="relative w-20 h-20 bg-gradient-to-br  rounded-3xl flex items-center justify-center shadow-2xl ring-2 ring-white/10">
+          <div className="text-white font-bold text-xl tracking-wider">
+            <Image 
+              src='/lyxlang-lyxlang-studio-with-text-removebg-preview.png'
+              alt='Logo de LyxLang Studio'
+              width={50}
+              height={50}
+              className='rounded-4xl object-cover'
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Spinner de carga */}
+      <div className="relative mb-6">
+        <div className="w-16 h-16 border-4 border-blue-400/20 rounded-full" />
+        <div className="absolute top-0 left-0 w-16 h-16 border-4 border-t-blue-400 border-r-blue-400/30 border-b-blue-400/30 border-l-blue-400/30 rounded-full animate-spin" />
+      </div>
+
+      {/* Texto y progreso */}
+      <div className="text-center space-y-3">
+        <h3 className="text-xl font-semibold text-white bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+          LyxLang Studio
+        </h3>
+        <p className="text-gray-400 text-sm">Cargando entorno de desarrollo...</p>
+        
+        <div className="w-64 h-1.5 bg-gray-700 rounded-full overflow-hidden mt-4">
+          <div className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500 rounded-full animate-shimmer" />
+        </div>
+      </div>
+
+      <style jsx>{`
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+        .animate-shimmer {
+          animation: shimmer 2s infinite;
+        }
+      `}</style>
     </div>
-  )
+  ),
 });
 
 interface FileNode {
