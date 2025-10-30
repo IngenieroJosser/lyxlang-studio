@@ -37,9 +37,8 @@ import {
   FiHardDrive
 } from 'react-icons/fi';
 import Image from 'next/image';
-// Prism removed: not used and breaks SSR prerender
 
-// Carga diferida de Monaco Editor con configuración optimizada
+// Carga diferida de Monaco Editor
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
   loading: () => (
@@ -59,7 +58,14 @@ interface FileNode {
   path?: string;
 }
 
-// Memoización de componentes para evitar re-renders innecesarios
+interface Tab {
+  id: string;
+  file: FileNode;
+  isDirty: boolean;
+  isActive: boolean;
+}
+
+// Memoización de componentes
 const MemoizedFileIcon = React.memo(({ type }: { type: 'file' | 'folder' }) => (
   type === 'folder' ?
     <FiFolder className="text-blue-400 mr-2 shrink-0" size={16} /> :
@@ -70,7 +76,7 @@ const MemoizedChevron = React.memo(({ isOpen }: { isOpen: boolean }) => (
   isOpen ? <FiChevronDown size={14} /> : <FiChevronRight size={14} />
 ));
 
-// Servicio de compilación TypeScript con lazy loading
+// Servicio de compilación TypeScript
 class TypeScriptCompiler {
   private ts: any = null;
   private initialized = false;
@@ -124,8 +130,7 @@ class TypeScriptCompiler {
     }
 
     try {
-      // Limitar el tamaño del código a compilar
-      if (code.length > 100000) { // 100KB límite
+      if (code.length > 100000) {
         return {
           success: false,
           error: 'El archivo es demasiado grande para compilar'
@@ -156,7 +161,7 @@ class TypeScriptCompiler {
   }
 }
 
-// Servicio de ejecución de comandos optimizado
+// Servicio de ejecución de comandos
 class CommandExecutor {
   private fileSystem: FileNode[];
   private setFiles: React.Dispatch<React.SetStateAction<FileNode[]>>;
@@ -174,10 +179,8 @@ class CommandExecutor {
   }
 
   private addOutput(message: string, icon?: React.ReactNode) {
-    // Limitar el tamaño del output de la terminal
     this.setTerminalOutput(prev => {
       const newOutput = [...prev, `${new Date().toLocaleTimeString()} ${icon ? `${icon} ` : ''}${message}`];
-      // Mantener máximo 1000 líneas en la terminal
       return newOutput.slice(-1000);
     });
   }
@@ -207,26 +210,19 @@ class CommandExecutor {
 
     switch (command) {
       case 'install':
-        if (args.length === 1) {
-          result = {
-            output: 'Instalando dependencias del package.json...\n Dependencias instaladas correctamente',
-            icon: <FiPackage className="text-blue-400 inline mr-1" size={12} />
-          };
-        } else {
-          result = {
-            output: `Instalando paquete: ${args.slice(1).join(' ')}\n Paquete instalado correctamente`,
-            icon: <FiPackage className="text-blue-400 inline mr-1" size={12} />
-          };
-        }
+        result = {
+          output: args.length === 1 
+            ? 'Instalando dependencias del package.json...\n Dependencias instaladas correctamente'
+            : `Instalando paquete: ${args.slice(1).join(' ')}\n Paquete instalado correctamente`,
+          icon: <FiPackage className="text-blue-400 inline mr-1" size={12} />
+        };
         break;
-
       case 'start':
         result = {
           output: 'Iniciando servidor de desarrollo...\n Servidor corriendo en http://localhost:3000',
           icon: <FiServer className="text-green-400 inline mr-1" size={12} />
         };
         break;
-
       case 'run':
         const script = args[1];
         switch (script) {
@@ -255,7 +251,6 @@ class CommandExecutor {
             };
         }
         break;
-
       default:
         result = {
           output: `Comando npm '${command}' no reconocido`,
@@ -283,28 +278,20 @@ class CommandExecutor {
           icon: <FiGitBranch className="text-orange-400 inline mr-1" size={12} />
         };
         break;
-
       case 'status':
         result = {
           output: 'Estado del repositorio:\n M src/main.ts\n?? nuevo_archivo.ts\n Working tree clean',
           icon: <FiInfo className="text-blue-400 inline mr-1" size={12} />
         };
         break;
-
       case 'add':
-        if (args[1] === '.') {
-          result = {
-            output: 'Añadiendo todos los archivos al staging...\n Archivos añadidos correctamente',
-            icon: <FiPlus className="text-green-400 inline mr-1" size={12} />
-          };
-        } else {
-          result = {
-            output: `Añadiendo archivo: ${args[1]}\n Archivo añadido al staging`,
-            icon: <FiPlus className="text-green-400 inline mr-1" size={12} />
-          };
-        }
+        result = {
+          output: args[1] === '.' 
+            ? 'Añadiendo todos los archivos al staging...\n Archivos añadidos correctamente'
+            : `Añadiendo archivo: ${args[1]}\n Archivo añadido al staging`,
+          icon: <FiPlus className="text-green-400 inline mr-1" size={12} />
+        };
         break;
-
       case 'commit':
         const message = args.slice(1).join(' ').replace(/-m\s*['"]?/, '').replace(/['"]?$/, '');
         result = {
@@ -312,42 +299,36 @@ class CommandExecutor {
           icon: <FiCheck className="text-green-400 inline mr-1" size={12} />
         };
         break;
-
       case 'push':
         result = {
           output: 'Enviendo cambios al repositorio remoto...\n Cambios enviados correctamente',
           icon: <FiUpload className="text-blue-400 inline mr-1" size={12} />
         };
         break;
-
       case 'pull':
         result = {
           output: 'Obteniendo cambios del repositorio remoto...\n Cambios obtenidos correctamente',
           icon: <FiDownload className="text-blue-400 inline mr-1" size={12} />
         };
         break;
-
       case 'branch':
         result = {
           output: 'Ramas disponibles:\n* main\n  development\n  feature/nueva-funcionalidad',
           icon: <FiGitBranch className="text-purple-400 inline mr-1" size={12} />
         };
         break;
-
       case 'checkout':
         result = {
           output: `Cambiando a rama: ${args[1]}\n Cambio de rama exitoso`,
           icon: <FiGitBranch className="text-yellow-400 inline mr-1" size={12} />
         };
         break;
-
       case 'clone':
         result = {
           output: `Clonando repositorio: ${args[1]}\n Repositorio clonado correctamente`,
           icon: <FiDownload className="text-green-400 inline mr-1" size={12} />
         };
         break;
-
       default:
         result = {
           output: `Comando git '${command}' no reconocido`,
@@ -375,25 +356,21 @@ class CommandExecutor {
           icon: <FiFolder className="text-blue-400 inline mr-1" size={12} />
         };
         break;
-
       case 'pwd':
         result = {
           output: `Directorio actual: ${window.location.pathname}`,
           icon: <FiHardDrive className="text-gray-400 inline mr-1" size={12} />
         };
         break;
-
       case 'echo':
         result = {
           output: args.slice(1).join(' '),
           icon: <FiFile className="text-gray-400 inline mr-1" size={12} />
         };
         break;
-
       case 'clear':
         this.setTerminalOutput([]);
         return { output: '', icon: null };
-
       case 'cat':
         if (args[1]) {
           const file = this.findFile(args[1]);
@@ -408,28 +385,24 @@ class CommandExecutor {
           };
         }
         break;
-
       case 'mkdir':
         result = {
           output: `Creando directorio: ${args[1]}\n Directorio creado correctamente`,
           icon: <FiFolderPlus className="text-green-400 inline mr-1" size={12} />
         };
         break;
-
       case 'touch':
         result = {
           output: `Creando archivo: ${args[1]}\n Archivo creado correctamente`,
           icon: <FiFilePlus className="text-green-400 inline mr-1" size={12} />
         };
         break;
-
       case 'rm':
         result = {
           output: `Eliminando: ${args[1]}\n Eliminado correctamente`,
           icon: <FiTrash2 className="text-red-400 inline mr-1" size={12} />
         };
         break;
-
       default:
         result = {
           output: `Comando '${command}' no encontrado`,
@@ -450,7 +423,6 @@ class CommandExecutor {
 
     this.addOutput(`$ ${trimmedCommand}`, <FiTerminal className="text-green-400 inline mr-1" size={12} />);
 
-    // Debounce para comandos rápidos
     await new Promise(resolve => setTimeout(resolve, 50));
 
     try {
@@ -466,10 +438,8 @@ class CommandExecutor {
 
       if (result.output) {
         const lines = result.output.split('\n');
-        // Procesar en lote para mejor rendimiento
         for (let i = 0; i < lines.length; i++) {
           this.addOutput(lines[i], result.icon);
-          // Pequeño delay para no bloquear la UI
           if (i % 5 === 0) await new Promise(resolve => setTimeout(resolve, 0));
         }
       }
@@ -483,7 +453,62 @@ class CommandExecutor {
   }
 }
 
-// Componente de árbol de archivos virtualizado para mejor rendimiento
+// Componente de pestañas
+const TabComponent = React.memo(({ 
+  tab, 
+  onTabClick, 
+  onTabClose,
+  isActive 
+}: { 
+  tab: Tab;
+  onTabClick: (tab: Tab) => void;
+  onTabClose: (tabId: string) => void;
+  isActive: boolean;
+}) => {
+  const handleClose = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onTabClose(tab.id);
+  };
+
+  return (
+    <div
+      className={`
+        flex items-center gap-2 px-4 py-2 min-w-0 max-w-48 cursor-pointer border-r border-gray-700/50
+        transition-all duration-200 group relative
+        ${isActive 
+          ? 'bg-gray-800/80 border-t-2 border-t-blue-400' 
+          : 'bg-gray-800/40 hover:bg-gray-700/60'
+        }
+      `}
+      onClick={() => onTabClick(tab)}
+    >
+      {/* Indicador de archivo modificado */}
+      {tab.isDirty && (
+        <div className="w-2 h-2 rounded-full bg-yellow-400 flex-shrink-0" />
+      )}
+      
+      <FiFile className="text-blue-400 flex-shrink-0" size={14} />
+      
+      <span className="text-sm text-gray-200 truncate flex-1">
+        {tab.file.name}
+      </span>
+      
+      <button
+        onClick={handleClose}
+        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-600/50 rounded transition-all duration-200 flex-shrink-0"
+      >
+        <FiX size={12} className="text-gray-400 hover:text-white" />
+      </button>
+
+      {/* Efecto de resplandor para pestaña activa */}
+      {isActive && (
+        <div className="absolute inset-0 bg-blue-500/5 rounded-t pointer-events-none" />
+      )}
+    </div>
+  );
+});
+
+// Componente de árbol de archivos
 const VirtualizedFileTree = React.memo(({
   nodes,
   selectedFile,
@@ -551,17 +576,17 @@ const FileTreeNode = React.memo(({
   }, [node, onStartRename]);
 
   const handleSaveRename = useCallback(() => {
-    // Implementar rename
     setIsRenaming(false);
   }, []);
 
   return (
     <div className="select-none group">
       <div
-        className={`flex items-center px-3 py-2 hover:bg-blue-500/10 cursor-pointer transition-all duration-200 rounded-lg mx-2 border-l-2 ${selectedFile?.id === node.id
+        className={`flex items-center px-3 py-2 hover:bg-blue-500/10 cursor-pointer transition-all duration-200 rounded-lg mx-2 border-l-2 ${
+          selectedFile?.id === node.id
             ? 'bg-blue-500/20 border-blue-400'
             : 'border-transparent hover:border-blue-400/30'
-          }`}
+        }`}
         style={{ paddingLeft: `${level * 16 + 12}px` }}
       >
         {node.type === 'folder' ? (
@@ -578,7 +603,6 @@ const FileTreeNode = React.memo(({
           <MemoizedFileIcon type="file" />
         )}
 
-        {/* Contenido del nodo */}
         <span
           className="flex-1 text-sm text-gray-200 hover:text-white transition-colors truncate"
           onClick={() => onFileSelect(node)}
@@ -638,7 +662,7 @@ const FileTreeNode = React.memo(({
   );
 });
 
-// Hook personalizado para gestión de estado optimizada
+// Hook personalizado para gestión de estado
 const useOptimizedState = <T,>(initialState: T) => {
   const [state, setState] = useState(initialState);
 
@@ -648,7 +672,6 @@ const useOptimizedState = <T,>(initialState: T) => {
         ? (newState as (prev: T) => T)(prev)
         : newState;
 
-      // Evitar re-renders si el estado es igual
       if (JSON.stringify(prev) === JSON.stringify(nextState)) {
         return prev;
       }
@@ -660,7 +683,7 @@ const useOptimizedState = <T,>(initialState: T) => {
 };
 
 const AdvancedCodeEditor = () => {
-  // Estados optimizados
+  // Estados principales
   const [files, setFiles] = useOptimizedState<FileNode[]>([
     {
       id: '1',
@@ -762,7 +785,9 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
     }
   ]);
 
-  const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
+  // Estados de pestañas y archivos
+  const [tabs, setTabs] = useState<Tab[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [code, setCode] = useState<string>('');
   const [currentPath, setCurrentPath] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
@@ -773,31 +798,34 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isTablet, setIsTablet] = useState(false);
-  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
-  const [globalSearchTerm, setGlobalSearchTerm] = useState('');
   const [terminalHeight, setTerminalHeight] = useState(300);
-  const [isResizing, setIsResizing] = useState(false);
-  const [scrollTop, setScrollTop] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
 
-  const lineCount = useMemo(() => (code ? code.split('\n').length : 0), [code]);
-
-  // Estado de ejecución
+  // Estados de ejecución
   const [isRunning, setIsRunning] = useState(false);
   const [showRunPanel, setShowRunPanel] = useState(false);
   const [runLogs, setRunLogs] = useState<Array<{ level: 'log' | 'warn' | 'error' | 'info'; message: string; time: string }>>([]);
   const workerRef = useRef<Worker | null>(null);
 
-  // Memoización de valores costosos
+  // Memoización de servicios
   const compiler = useMemo(() => new TypeScriptCompiler(), []);
   const commandExecutor = useMemo(() => new CommandExecutor(files, setFiles, setTerminalOutput), [files, setFiles]);
 
   const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInputRef = useRef<HTMLInputElement>(null);
-  const globalSearchRef = useRef<HTMLInputElement>(null);
-  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
 
-  // Throttle para eventos de resize
+  // Obtener archivo activo actual
+  const activeFile = useMemo(() => {
+    const activeTab = tabs.find(tab => tab.id === activeTabId);
+    return activeTab?.file || null;
+  }, [tabs, activeTabId]);
+
+  // Obtener pestaña activa
+  const activeTab = useMemo(() => 
+    tabs.find(tab => tab.id === activeTabId) || null, 
+  [tabs, activeTabId]);
+
+  // Efectos de responsive
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
 
@@ -827,16 +855,95 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
     };
   }, []);
 
-  // Debounce para búsqueda
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      // Lógica de búsqueda optimizada
-    }, 300);
+  // Callbacks para gestión de pestañas
+  const openFileInTab = useCallback((file: FileNode) => {
+    if (file.type !== 'file') return;
 
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
+    setTabs(prevTabs => {
+      // Verificar si el archivo ya está abierto
+      const existingTab = prevTabs.find(tab => tab.file.id === file.id);
+      
+      if (existingTab) {
+        // Si ya existe, activar esa pestaña
+        setActiveTabId(existingTab.id);
+        setCode(existingTab.file.content || '');
+        setCurrentPath(file.path || '');
+        return prevTabs;
+      }
 
-  // Callbacks memoizados para evitar re-renders
+      // Crear nueva pestaña
+      const newTab: Tab = {
+        id: `tab-${file.id}-${Date.now()}`,
+        file: { ...file },
+        isDirty: false,
+        isActive: true
+      };
+
+      // Desactivar todas las pestañas anteriores y activar la nueva
+      const updatedTabs = prevTabs.map(tab => ({ ...tab, isActive: false }));
+      updatedTabs.push(newTab);
+
+      setActiveTabId(newTab.id);
+      setCode(file.content || '');
+      setCurrentPath(file.path || '');
+
+      return updatedTabs;
+    });
+  }, []);
+
+  const closeTab = useCallback((tabId: string) => {
+    setTabs(prevTabs => {
+      const tabIndex = prevTabs.findIndex(tab => tab.id === tabId);
+      if (tabIndex === -1) return prevTabs;
+
+      const newTabs = prevTabs.filter(tab => tab.id !== tabId);
+      
+      // Si cerramos la pestaña activa, activar otra
+      if (tabId === activeTabId) {
+        if (newTabs.length > 0) {
+          // Intentar activar la pestaña a la derecha, o si no, la izquierda
+          const newActiveTab = tabIndex < newTabs.length 
+            ? newTabs[tabIndex] 
+            : newTabs[newTabs.length - 1];
+          
+          setActiveTabId(newActiveTab.id);
+          setCode(newActiveTab.file.content || '');
+          setCurrentPath(newActiveTab.file.path || '');
+        } else {
+          // No hay más pestañas
+          setActiveTabId(null);
+          setCode('');
+          setCurrentPath('');
+        }
+      }
+
+      return newTabs;
+    });
+  }, [activeTabId]);
+
+  const switchTab = useCallback((tab: Tab) => {
+    setActiveTabId(tab.id);
+    setCode(tab.file.content || '');
+    setCurrentPath(tab.file.path || '');
+    
+    // Actualizar estado activo de pestañas
+    setTabs(prevTabs => 
+      prevTabs.map(t => ({
+        ...t,
+        isActive: t.id === tab.id
+      }))
+    );
+  }, []);
+
+  const markTabAsDirty = useCallback((tabId: string, isDirty: boolean) => {
+    setTabs(prevTabs =>
+      prevTabs.map(tab =>
+        tab.id === tabId ? { ...tab, isDirty } : tab
+      )
+    );
+  }, []);
+
+  // Callbacks para gestión de archivos
   const toggleFolder = useCallback((id: string) => {
     setFiles(prevFiles => {
       const updateNode = (nodes: FileNode[]): FileNode[] => {
@@ -856,16 +963,14 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
 
   const handleFileSelect = useCallback((file: FileNode) => {
     if (file.type === 'file') {
-      setSelectedFile(file);
-      setCode(file.content || '');
-      setCurrentPath(file.path || '');
+      openFileInTab(file);
       if (isMobile) {
         setSidebarOpen(false);
       }
     } else {
       toggleFolder(file.id);
     }
-  }, [isMobile, toggleFolder]);
+  }, [isMobile, openFileInTab, toggleFolder]);
 
   const addNewItem = useCallback((parentId?: string, type: 'file' | 'folder' = 'file') => {
     const newItem: FileNode = {
@@ -912,13 +1017,14 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       return removeNode(prevFiles);
     });
 
-    if (selectedFile?.id === id) {
-      setSelectedFile(null);
-      setCode('');
-      setCurrentPath('');
+    // Cerrar pestaña si el archivo está abierto
+    const tabToClose = tabs.find(tab => tab.file.id === id);
+    if (tabToClose) {
+      closeTab(tabToClose.id);
     }
-  }, [selectedFile, setFiles]);
+  }, [tabs, closeTab, setFiles]);
 
+  // Callbacks para terminal
   const executeTerminalCommand = useCallback(async (command: string) => {
     if (!command.trim()) return;
 
@@ -936,38 +1042,23 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
     }
   }, [executeTerminalCommand, terminalInput]);
 
-  // Filtrado memoizado de archivos
-  const filteredFiles = useMemo(() => {
-    if (!searchTerm) return files;
-
-    const filterNodes = (nodes: FileNode[]): FileNode[] => {
-      return nodes.filter(node => {
-        if (node.name.toLowerCase().includes(searchTerm.toLowerCase())) return true;
-        if (node.children) {
-          const filteredChildren = filterNodes(node.children);
-          return filteredChildren.length > 0;
-        }
-        return false;
-      });
-    };
-
-    return filterNodes(files);
-  }, [files, searchTerm]);
-
-  // Determinar el ancho del minimap basado en el dispositivo
-  const getMinimapWidth = useCallback(() => {
-    if (isMobile) return '0px';
-    if (isTablet) return '24px';
-    return '32px';
-  }, [isMobile, isTablet]);
-
-  const handleEditorChange = useCallback((value: string | undefined) => {
-    setCode(value || '');
+  const clearTerminal = useCallback(() => {
+    setTerminalOutput([]);
   }, []);
+
+  // Callbacks para editor
+  const handleEditorChange = useCallback((value: string | undefined) => {
+    const newCode = value || '';
+    setCode(newCode);
+    
+    // Marcar pestaña como modificada si el contenido cambió
+    if (activeTab && activeTab.file.content !== newCode) {
+      markTabAsDirty(activeTab.id, true);
+    }
+  }, [activeTab, markTabAsDirty]);
 
   const handleEditorMount = useCallback((editor: any, monaco: any) => {
     try {
-      // Define custom theme to match site background
       monaco.editor.defineTheme('lyx-dark', {
         base: 'vs-dark',
         inherit: true,
@@ -994,15 +1085,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
     }
   }, []);
 
-  const clearTerminal = useCallback(() => {
-    setTerminalOutput([]);
-  }, []);
-
-  // Inicializar compilador en cliente
-  useEffect(() => {
-    compiler.initialize().catch(() => { });
-  }, [compiler]);
-
+  // Callbacks para ejecución
   const appendRunLog = useCallback((level: 'log' | 'warn' | 'error' | 'info', message: string) => {
     setRunLogs(prev => [...prev, { level, message, time: new Date().toLocaleTimeString() }].slice(-500));
   }, []);
@@ -1021,7 +1104,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
   }, []);
 
   const runCode = useCallback(async () => {
-    if (!selectedFile) return;
+    if (!activeFile) return;
     setShowRunPanel(true);
     setIsRunning(true);
     clearRun();
@@ -1097,15 +1180,16 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       setIsRunning(false);
       appendRunLog('error', err?.message || 'Fallo al ejecutar');
     }
-  }, [appendRunLog, clearRun, code, compiler, selectedFile]);
+  }, [appendRunLog, clearRun, code, compiler, activeFile]);
 
   const saveFile = useCallback(() => {
-    if (!selectedFile) return;
+    if (!activeTab) return;
 
+    // Actualizar contenido en el árbol de archivos
     setFiles(prevFiles => {
       const updateFileContent = (nodes: FileNode[]): FileNode[] => {
         return nodes.map(node => {
-          if (node.id === selectedFile.id) {
+          if (node.id === activeTab.file.id) {
             return { ...node, content: code };
           }
           if (node.children) {
@@ -1117,37 +1201,53 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       return updateFileContent(prevFiles);
     });
 
-    setSelectedFile(prev => prev ? { ...prev, content: code } : null);
-  }, [selectedFile, code, setFiles]);
+    // Actualizar contenido en la pestaña y quitar estado dirty
+    setTabs(prevTabs =>
+      prevTabs.map(tab =>
+        tab.id === activeTab.id
+          ? { 
+              ...tab, 
+              file: { ...tab.file, content: code },
+              isDirty: false 
+            }
+          : tab
+      )
+    );
 
-  const compileCode = useCallback(async () => {
-    if (!selectedFile) return;
-
-    try {
-      const result = compiler.compile(code);
-      // Lógica de compilación...
-    } catch (error) {
-      console.error('Error compiling:', error);
+    // Actualizar archivo activo
+    if (activeFile) {
+      setCurrentPath(activeFile.path || '');
     }
-  }, [selectedFile, code, compiler]);
+  }, [activeTab, activeFile, code, setFiles]);
+
+  // Inicializar compilador
+  useEffect(() => {
+    compiler.initialize().catch(() => { });
+  }, [compiler]);
+
+  // Filtrado de archivos
+  const filteredFiles = useMemo(() => {
+    if (!searchTerm) return files;
+
+    const filterNodes = (nodes: FileNode[]): FileNode[] => {
+      return nodes.filter(node => {
+        if (node.name.toLowerCase().includes(searchTerm.toLowerCase())) return true;
+        if (node.children) {
+          const filteredChildren = filterNodes(node.children);
+          return filteredChildren.length > 0;
+        }
+        return false;
+      });
+    };
+
+    return filterNodes(files);
+  }, [files, searchTerm]);
+
+  const lineCount = useMemo(() => (code ? code.split('\n').length : 0), [code]);
 
   return (
     <div className="flex h-screen bg-linear-to-br from-gray-900 to-gray-800 text-white overflow-hidden">
-      {/* Estilos optimizados */}
-      <style jsx global>{`
-        /* Estilos críticos inline, el resto cargar via CSS */
-        .editor-background {
-          background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important;
-        }
-        
-        /* Virtual scrolling para la terminal */
-        .terminal-output {
-          contain: strict;
-          will-change: transform;
-        }
-      `}</style>
-
-      {/* Sidebar optimizado */}
+      {/* Sidebar */}
       <div className={`
         fixed lg:relative z-50 h-full bg-gray-800/95 backdrop-blur-lg border-r border-gray-700/80 flex flex-col shadow-2xl transition-all duration-300
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
@@ -1208,7 +1308,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
         <div className="flex-1 overflow-y-auto py-3">
           <VirtualizedFileTree
             nodes={filteredFiles}
-            selectedFile={selectedFile}
+            selectedFile={activeFile}
             onFileSelect={handleFileSelect}
             onToggleFolder={toggleFolder}
             onStartRename={() => { }}
@@ -1218,9 +1318,9 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
         </div>
       </div>
 
-      {/* Área principal optimizada */}
+      {/* Área principal */}
       <div className="flex-1 flex flex-col min-w-0 h-full editor-background">
-        {/* Header optimizado */}
+        {/* Header */}
         <div className="bg-gray-800/80 backdrop-blur-lg border-b border-gray-700/80 px-4 lg:px-6 py-3 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 lg:space-x-4">
@@ -1238,15 +1338,26 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
             <div className="flex items-center space-x-1 lg:space-x-2">
               <button
                 onClick={saveFile}
-                className="flex items-center px-2 lg:px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-all duration-200 shadow-lg hover:shadow-green-500/25 border border-white/5"
+                disabled={!activeTab?.isDirty}
+                className={`flex items-center px-2 lg:px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 border border-white/5 ${
+                  activeTab?.isDirty
+                    ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-green-500/25'
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
               >
                 <FiSave className="mr-1 lg:mr-1.5 shrink-0" size={14} />
                 <span className="hidden sm:inline">Guardar</span>
               </button>
               <button
                 onClick={isRunning ? stopRun : runCode}
-                className={`flex items-center px-2 lg:px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 border border-white/5 ${isRunning ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg hover:shadow-red-500/25' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-blue-500/25'}`}
-                title={isRunning ? 'Detener ejecución' : 'Ejecutar'}
+                disabled={!activeFile}
+                className={`flex items-center px-2 lg:px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 border border-white/5 ${
+                  activeFile
+                    ? isRunning
+                      ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg hover:shadow-red-500/25'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-blue-500/25'
+                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                }`}
               >
                 <FiPlay className={`mr-1 lg:mr-1.5 shrink-0 ${isRunning ? 'rotate-90' : ''}`} size={14} />
                 <span className="hidden sm:inline">{isRunning ? 'Detener' : 'Ejecutar'}</span>
@@ -1261,15 +1372,40 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
           </div>
         </div>
 
-        {/* Editor con configuración optimizada */}
+        {/* Barra de pestañas */}
+        {tabs.length > 0 && (
+          <div 
+            ref={tabsContainerRef}
+            className="bg-gray-800/60 border-b border-gray-700/80 flex overflow-x-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent"
+          >
+            <div className="flex min-w-0 flex-1">
+              {tabs.map((tab) => (
+                <TabComponent
+                  key={tab.id}
+                  tab={tab}
+                  onTabClick={switchTab}
+                  onTabClose={closeTab}
+                  isActive={tab.id === activeTabId}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Editor */}
         <div className="flex-1 flex min-h-0 p-2 lg:p-4">
-          {selectedFile ? (
+          {activeFile ? (
             <div className="flex-1 flex bg-gray-900 rounded-2xl border border-gray-700/80 shadow-2xl overflow-hidden">
               <div className="flex-1 flex flex-col min-w-0">
                 <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700/70 bg-gray-800/60">
                   <div className="flex items-center gap-2 min-w-0">
                     <span className="w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_10px_2px_rgba(96,165,250,0.5)]" />
-                    <span className="text-sm text-gray-200 truncate max-w-[40vw] lg:max-w-[50vw]">{selectedFile?.name}</span>
+                    <span className="text-sm text-gray-200 truncate max-w-[40vw] lg:max-w-[50vw]">{activeFile?.name}</span>
+                    {activeTab?.isDirty && (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-300 border border-yellow-400/20">
+                        Sin guardar
+                      </span>
+                    )}
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-300 border border-blue-400/20 hidden sm:inline">TypeScript</span>
                   </div>
                 </div>
@@ -1281,7 +1417,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                   onChange={handleEditorChange}
                   onMount={handleEditorMount}
                   options={{
-                    minimap: { enabled: false } as { enabled: boolean },
+                    minimap: { enabled: false },
                     fontSize: 12,
                     fontFamily: `Tinos, 'Space Mono', 'Courier New', monospace`,
                     lineNumbers: 'on',
@@ -1289,13 +1425,11 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                     automaticLayout: true,
                     tabSize: 2,
                     insertSpaces: true,
-                    // Optimizaciones de rendimiento
                     renderLineHighlight: 'none',
                     renderControlCharacters: false,
                     renderWhitespace: 'none',
                     occurrencesHighlight: 'off',
                     selectionHighlight: false,
-                    // Configuración corregida para sugerencias
                     suggestOnTriggerCharacters: false,
                     quickSuggestions: false,
                     parameterHints: { enabled: false },
@@ -1321,119 +1455,147 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center p-6">
-              <div className="relative group text-center max-w-4xl w-full p-8 lg:p-12 bg-gradient-to-br from-slate-900/95 to-slate-800/90 border border-slate-700/60 rounded-xl backdrop-blur-2xl shadow-2xl transition-all duration-500 hover:shadow-[0_0_50px_rgba(120,119,198,0.3)] hover:border-slate-600/80">
+            <div className="flex-1 flex items-center justify-center p-4 sm:p-6">
+  <div className="relative group text-center w-full max-w-4xl p-6 sm:p-8 lg:p-12 bg-gradient-to-br from-slate-900/95 to-slate-800/90 border border-slate-700/60 rounded-xl backdrop-blur-2xl shadow-2xl transition-all duration-500">
+    
+    {/* Efecto de fondo sutil */}
+    <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-cyan-500/5 blur-xl transition-all duration-700"></div>
 
-                {/* Efecto de fondo sutil */}
-                <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-cyan-500/5 blur-xl transition-all duration-700"></div>
+    {/* Header inspirado en VS Code - Siempre visible */}
+    <div className="relative mb-6 lg:mb-8">
+      <div className="flex items-center justify-center gap-4 mb-4">
+        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+        <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+      </div>
+      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">
+        LyxLang Studio
+      </h1>
+      <p className="text-slate-400 text-sm sm:text-base">Edición mejorada</p>
+    </div>
 
-                {/* Header inspirado en VS Code */}
-                <div className="relative mb-8">
-                  <div className="flex items-center justify-center gap-4 mb-4">
-                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                  </div>
-                  <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">
-                    LyxLang Studio
-                  </h1>
-                  <p className="text-slate-400 text-sm">Edición mejorada</p>
+    {/* Grid de contenido - Solo visible en desktop */}
+    <div className="hidden lg:block">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-left">
+        
+        {/* Columna Inicio */}
+        <div className="space-y-4">
+          <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Inicio</h3>
+          <div className="space-y-3">
+            {[
+              "Nuevo archivo...",
+              "Abrir archivo...",
+              "Abrir carpeta...",
+              "Clonar repositorio Git...",
+              "Conectarse a...",
+              "Generar nueva área de trabajo..."
+            ].map((item, index) => (
+              <div key={index} className="flex items-center gap-3 group/item">
+                <div className={`w-4 h-4 rounded border ${index === 1 || index === 4 || index === 5 ? 'bg-blue-500 border-blue-400' : 'border-slate-600'}`}></div>
+                <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">{item}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Columna Recientes */}
+        <div className="space-y-4">
+          <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Recientes</h3>
+          <div className="space-y-3">
+            {[
+              { name: "pacifika-x", path: "C:/Users/Usuario/Desktop/proyectos" },
+              { name: "vitobisco-base", path: "C:/Users/Usuario/Desktop/proyectos/vitobisco" },
+              { name: "chocomarket-frontend", path: "C:/Users/Usuario/Desktop/proyectos..." },
+              { name: "chocomarket-backend", path: "C:/Users/Usuario/Desktop/proyectos..." }
+            ].map((project, index) => (
+              <div key={index} className="group/item cursor-pointer">
+                <div className="text-slate-200 group-hover/item:text-white transition-colors font-medium text-sm">
+                  {project.name}
                 </div>
-
-                {/* Grid de contenido similar a la imagen */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-left">
-
-                  {/* Columna Inicio */}
-                  <div className="space-y-4">
-                    <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Inicio</h3>
-                    <div className="space-y-3">
-                      {[
-                        "Nuevo archivo...",
-                        "Abrir archivo...",
-                        "Abrir carpeta...",
-                        "Clonar repositorio Git...",
-                        "Conectarse a...",
-                        "Generar nueva área de trabajo..."
-                      ].map((item, index) => (
-                        <div key={index} className="flex items-center gap-3 group/item">
-                          <div className={`w-4 h-4 rounded border ${index === 1 || index === 4 || index === 5 ? 'bg-blue-500 border-blue-400' : 'border-slate-600'}`}></div>
-                          <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">{item}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Columna Recientes */}
-                  <div className="space-y-4">
-                    <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Recientes</h3>
-                    <div className="space-y-3">
-                      {[
-                        { name: "pacifika-x", path: "C:/Users/Usuario/Desktop/proyectos" },
-                        { name: "vitobisco-base", path: "C:/Users/Usuario/Desktop/proyectos/vitobisco" },
-                        { name: "chocomarket-frontend", path: "C:/Users/Usuario/Desktop/proyectos..." },
-                        { name: "chocomarket-backend", path: "C:/Users/Usuario/Desktop/proyectos..." }
-                      ].map((project, index) => (
-                        <div key={index} className="group/item cursor-pointer">
-                          <div className="text-slate-200 group-hover/item:text-white transition-colors font-medium text-sm">
-                            {project.name}
-                          </div>
-                          <div className="text-slate-500 text-xs truncate group-hover/item:text-slate-300 transition-colors">
-                            {project.path}
-                          </div>
-                        </div>
-                      ))}
-                      <div className="text-blue-400 text-sm cursor-pointer hover:text-blue-300 transition-colors">
-                        Más...
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Columna Tutoriales */}
-                  <div className="space-y-4">
-                    <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Tutoriales</h3>
-                    <div className="space-y-3">
-                      {[
-                        { title: "Meet BLACKBOX, the Best AI Coding Agent", completed: true },
-                        { title: "Welcome to AI Toolkit", completed: false },
-                        { title: "Modernize with Copilot", completed: true },
-                        { title: "Get Started with Java Development", completed: false },
-                        { title: "Getting Started with Container Tools", completed: false }
-                      ].map((tutorial, index) => (
-                        <div key={index} className="flex items-center gap-3 group/item">
-                          <div className={`w-4 h-4 rounded border ${tutorial.completed ? 'bg-green-500 border-green-400' : 'border-slate-600'}`}></div>
-                          <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">{tutorial.title}</span>
-                        </div>
-                      ))}
-                      <div className="text-blue-400 text-sm cursor-pointer hover:text-blue-300 transition-colors">
-                        Más...
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer con información de estado */}
-                <div className="mt-8 pt-6 border-t border-slate-700/50">
-                  <div className="flex items-center justify-center gap-6 text-slate-500 text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                      <span>Listo</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <FiCode className="text-slate-400" />
-                      <span>TypeScript</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                      <span>Conectado</span>
-                    </div>
-                  </div>
+                <div className="text-slate-500 text-xs truncate group-hover/item:text-slate-300 transition-colors">
+                  {project.path}
                 </div>
               </div>
+            ))}
+            <div className="text-blue-400 text-sm cursor-pointer hover:text-blue-300 transition-colors">
+              Más...
             </div>
+          </div>
+        </div>
+
+        {/* Columna Tutoriales */}
+        <div className="space-y-4">
+          <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Tutoriales</h3>
+          <div className="space-y-3">
+            {[
+              { title: "Meet BLACKBOX, the Best AI Coding Agent", completed: true },
+              { title: "Welcome to AI Toolkit", completed: false },
+              { title: "Modernize with Copilot", completed: true },
+              { title: "Get Started with Java Development", completed: false },
+              { title: "Getting Started with Container Tools", completed: false }
+            ].map((tutorial, index) => (
+              <div key={index} className="flex items-center gap-3 group/item">
+                <div className={`w-4 h-4 rounded border ${tutorial.completed ? 'bg-green-500 border-green-400' : 'border-slate-600'}`}></div>
+                <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">{tutorial.title}</span>
+              </div>
+            ))}
+            <div className="text-blue-400 text-sm cursor-pointer hover:text-blue-300 transition-colors">
+              Más...
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer con información de estado - Solo visible en desktop */}
+      <div className="mt-8 pt-6 border-t border-slate-700/50">
+        <div className="flex items-center justify-center gap-6 text-slate-500 text-sm">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <span>Listo</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <FiCode className="text-slate-400" />
+            <span>TypeScript</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+            <span>Conectado</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {/* Mensaje para móvil/tablet - Solo visible en móvil y tablet */}
+    <div className="lg:hidden text-center space-y-4 mt-6">
+      <div className="text-slate-300 text-sm">
+        Abre un archivo para comenzar a programar
+      </div>
+      <div className="flex justify-center gap-3">
+        <button 
+          onClick={() => addNewItem()}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+        >
+          <FiFilePlus size={16} />
+          Nuevo archivo
+        </button>
+        <button 
+          onClick={() => addNewItem(undefined, 'folder')}
+          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+        >
+          <FiFolderPlus size={16} />
+          Nueva carpeta
+        </button>
+      </div>
+      <div className="text-slate-500 text-xs mt-4">
+        Usa el menú lateral para navegar por los archivos
+      </div>
+    </div>
+  </div>
+</div>
           )}
         </div>
 
-        {/* Terminal optimizada */}
+        {/* Terminal */}
         {terminalOpen && (
           <div
             ref={terminalRef}
@@ -1457,7 +1619,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
               </div>
 
               <div
-                ref={terminalRef}
                 className="flex-1 p-4 overflow-y-auto text-xs lg:text-sm bg-gray-900 min-h-0 terminal-output"
               >
                 {terminalOutput.slice(-100).map((line, index) => (
@@ -1483,6 +1644,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
             </div>
           </div>
         )}
+
         {/* Panel de ejecución */}
         {showRunPanel && (
           <div className="bg-gray-900/95 border-t border-gray-700/80 backdrop-blur-lg transition-all duration-300 flex flex-col shrink-0">
