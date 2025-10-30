@@ -255,7 +255,7 @@ export interface Badge {
   color: string;
   progress: number;
   achieved: boolean;
-  category: 'productivity' | 'mastery' | 'collaboration' | 'special' | 'storage' | 'github';
+  category: 'junior' | 'mid-level' | 'senior' | 'expert' | 'special';
   requirements: {
     metric: string;
     current: number;

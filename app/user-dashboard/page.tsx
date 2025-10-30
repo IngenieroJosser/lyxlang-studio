@@ -35,7 +35,25 @@ import {
   FiBook,
   FiTool,
   FiMenu,
-  FiX
+  FiX,
+  FiFile,
+  FiFileText,
+  FiSettings,
+  FiTerminal,
+  FiPlay,
+  FiHome,
+  FiBookOpen,
+  FiHeart,
+  FiThumbsUp,
+  FiArrowUp,
+  FiTrendingDown,
+  FiWifi,
+  FiAnchor,
+  FiFeather,
+  FiHexagon,
+  FiTarget as FiTargetIcon,
+  FiAperture as FiApertureIcon,
+  FiZap as FiZapIcon
 } from 'react-icons/fi';
 import Image from 'next/image';
 import {
@@ -507,7 +525,7 @@ const EnhancedUserDashboard = () => {
       isActive: true,
       createdAt: '2024-01-01T00:00:00Z'
     },
-    planExpiresAt: '2024-12-31T23:59:59Z', // ✅ Corregido: en User, no en Plan
+    planExpiresAt: '2024-12-31T23:59:59Z',
     storageUsed: BigInt(256000000),
     compilationsThisMonth: 342,
     organizationId: 'org1',
@@ -555,7 +573,240 @@ const EnhancedUserDashboard = () => {
   });
 
   const [projects, setProjects] = useState<Project[]>([]);
-  const [badges, setBadges] = useState<Badge[]>([]);
+
+  // SISTEMA COMPLETO DE INSIGNIAS JUNIOR → SENIOR
+  const [badges, setBadges] = useState<Badge[]>([
+    // 🟢 NIVEL 1: JUNIOR DEVELOPER
+    {
+      id: 'junior-1',
+      name: 'Primeros Pasos',
+      description: 'Crea tu primer proyecto en LyxLang',
+      icon: <FiHome className="text-green-400" size={20} />,
+      color: 'from-green-500 to-emerald-500',
+      progress: 100,
+      achieved: true,
+      category: 'junior',
+      requirements: [
+        { metric: 'Proyectos creados', current: 1, target: 1 }
+      ]
+    },
+    {
+      id: 'junior-2',
+      name: 'Hola Mundo',
+      description: 'Ejecuta tu primer código TypeScript exitosamente',
+      icon: <FiPlay className="text-blue-400" size={20} />,
+      color: 'from-blue-500 to-cyan-500',
+      progress: 100,
+      achieved: true,
+      category: 'junior',
+      requirements: [
+        { metric: 'Compilaciones exitosas', current: 1, target: 1 }
+      ]
+    },
+    {
+      id: 'junior-3',
+      name: 'Explorador de Archivos',
+      description: 'Crea 10 archivos en tus proyectos',
+      icon: <FiFileText className="text-purple-400" size={20} />,
+      color: 'from-purple-500 to-pink-500',
+      progress: 60,
+      achieved: false,
+      category: 'junior',
+      requirements: [
+        { metric: 'Archivos creados', current: 6, target: 10 }
+      ]
+    },
+    {
+      id: 'junior-4',
+      name: 'Aprendiz de TypeScript',
+      description: 'Escribe 100 líneas de código TypeScript',
+      icon: <FiBookOpen className="text-yellow-400" size={20} />,
+      color: 'from-yellow-500 to-orange-500',
+      progress: 75,
+      achieved: false,
+      category: 'junior',
+      requirements: [
+        { metric: 'Líneas de TypeScript', current: 75, target: 100 }
+      ]
+    },
+
+    // 🔵 NIVEL 2: MID-LEVEL DEVELOPER
+    {
+      id: 'mid-1',
+      name: 'Productivo',
+      description: 'Realiza 100 compilaciones exitosas',
+      icon: <FiZap className="text-green-400" size={20} />,
+      color: 'from-green-500 to-teal-500',
+      progress: 85,
+      achieved: false,
+      category: 'mid-level',
+      requirements: [
+        { metric: 'Compilaciones exitosas', current: 85, target: 100 }
+      ]
+    },
+    {
+      id: 'mid-2',
+      name: 'Organizado',
+      description: 'Mantén 5 proyectos activos simultáneamente',
+      icon: <FiFolder className="text-blue-400" size={20} />,
+      color: 'from-blue-500 to-indigo-500',
+      progress: 40,
+      achieved: false,
+      category: 'mid-level',
+      requirements: [
+        { metric: 'Proyectos activos', current: 2, target: 5 }
+      ]
+    },
+    {
+      id: 'mid-3',
+      name: 'Artista del TypeScript',
+      description: 'Escribe 1,000 líneas de código TypeScript',
+      icon: <FiCode className="text-purple-400" size={20} />,
+      color: 'from-purple-500 to-fuchsia-500',
+      progress: 45,
+      achieved: false,
+      category: 'mid-level',
+      requirements: [
+        { metric: 'Líneas de TypeScript', current: 450, target: 1000 }
+      ]
+    },
+    {
+      id: 'mid-4',
+      name: 'Team Player',
+      description: 'Colabora en 3 proyectos con otros desarrolladores',
+      icon: <FiUsers className="text-cyan-400" size={20} />,
+      color: 'from-cyan-500 to-blue-500',
+      progress: 33,
+      achieved: false,
+      category: 'mid-level',
+      requirements: [
+        { metric: 'Proyectos colaborativos', current: 1, target: 3 }
+      ]
+    },
+
+    // 🟣 NIVEL 3: SENIOR DEVELOPER
+    {
+      id: 'senior-1',
+      name: 'Arquitecto de Sistemas',
+      description: 'Diseña y mantiene 10 proyectos complejos',
+      icon: <FiSettings className="text-red-400" size={20} />,
+      color: 'from-red-500 to-pink-500',
+      progress: 20,
+      achieved: false,
+      category: 'senior',
+      requirements: [
+        { metric: 'Proyectos complejos', current: 2, target: 10 }
+      ]
+    },
+    {
+      id: 'senior-2',
+      name: 'Gurú del TypeScript',
+      description: 'Escribe 10,000 líneas de código TypeScript',
+      icon: <FiAward className="text-yellow-400" size={20} />,
+      color: 'from-yellow-500 to-amber-500',
+      progress: 8,
+      achieved: false,
+      category: 'senior',
+      requirements: [
+        { metric: 'Líneas de TypeScript', current: 800, target: 10000 }
+      ]
+    },
+    {
+      id: 'senior-3',
+      name: 'Maestro de GitHub',
+      description: 'Sincroniza 5 proyectos con GitHub con CI/CD',
+      icon: <FiGitBranch className="text-green-400" size={20} />,
+      color: 'from-green-500 to-emerald-500',
+      progress: 20,
+      achieved: false,
+      category: 'senior',
+      requirements: [
+        { metric: 'Proyectos con CI/CD', current: 1, target: 5 }
+      ]
+    },
+    {
+      id: 'senior-4',
+      name: 'Mentor Técnico',
+      description: 'Ayuda a 5 desarrolladores junior a progresar',
+      icon: <FiHeart className="text-pink-400" size={20} />,
+      color: 'from-pink-500 to-rose-500',
+      progress: 0,
+      achieved: false,
+      category: 'senior',
+      requirements: [
+        { metric: 'Desarrolladores mentorizados', current: 0, target: 5 }
+      ]
+    },
+
+    // 🟠 NIVEL 4: EXPERT/PRINCIPAL
+    {
+      id: 'expert-1',
+      name: 'Principal Engineer',
+      description: 'Contribuye significativamente a la plataforma LyxLang',
+      icon: <FiAward className="text-orange-400" size={20} />,
+      color: 'from-orange-500 to-red-500',
+      progress: 0,
+      achieved: false,
+      category: 'expert',
+      requirements: [
+        { metric: 'Contribuciones a plataforma', current: 0, target: 10 }
+      ]
+    },
+    {
+      id: 'expert-2',
+      name: 'Arquitecto Empresarial',
+      description: 'Diseña sistemas que escalan a nivel empresarial',
+      icon: <FiTarget className="text-purple-400" size={20} />,
+      color: 'from-purple-500 to-indigo-500',
+      progress: 0,
+      achieved: false,
+      category: 'expert',
+      requirements: [
+        { metric: 'Sistemas empresariales', current: 0, target: 3 }
+      ]
+    },
+
+    // 🎖️ INSIGNIAS ESPECIALES
+    {
+      id: 'special-1',
+      name: 'Early Adopter',
+      description: 'Únete a LyxLang durante la fase beta',
+      icon: <FiPlay className="text-cyan-400" size={20} />,
+      color: 'from-cyan-500 to-blue-500',
+      progress: 100,
+      achieved: true,
+      category: 'special',
+      requirements: [
+        { metric: 'Miembro beta', current: 1, target: 1 }
+      ]
+    },
+    {
+      id: 'special-2',
+      name: 'Compilador Infatigable',
+      description: 'Realiza 1,000 compilaciones en un mes',
+      icon: <FiCpu className="text-blue-400" size={20} />,
+      color: 'from-blue-500 to-purple-500',
+      progress: 34,
+      achieved: false,
+      category: 'special',
+      requirements: [
+        { metric: 'Compilaciones mensuales', current: 342, target: 1000 }
+      ]
+    },
+    {
+      id: 'special-3',
+      name: 'Guardían del Código',
+      description: 'Mantén 95%+ de tasa de compilación exitosa',
+      icon: <FiShield className="text-green-400" size={20} />,
+      color: 'from-green-500 to-emerald-500',
+      progress: 88,
+      achieved: false,
+      category: 'special',
+      requirements: [
+        { metric: 'Tasa de éxito compilación', current: 88, target: 95, unit: '%' }
+      ]
+    }
+  ]);
 
   // Calcular métricas
   const metrics = useMemo(() => {
@@ -581,6 +832,14 @@ const EnhancedUserDashboard = () => {
 
   // Agrupar insignias por categoría
   const badgesByCategory = useMemo(() => {
+    const categories = {
+      'junior': 'Junior Developer',
+      'mid-level': 'Mid-Level',
+      'senior': 'Senior Developer', 
+      'expert': 'Expert/Principal',
+      'special': 'Especiales'
+    };
+
     return badges.reduce((acc, badge) => {
       if (!acc[badge.category]) {
         acc[badge.category] = [];
@@ -588,6 +847,28 @@ const EnhancedUserDashboard = () => {
       acc[badge.category].push(badge);
       return acc;
     }, {} as Record<string, Badge[]>);
+  }, [badges]);
+
+  // Calcular progreso por nivel
+  const levelProgress = useMemo(() => {
+    const levels = {
+      'junior': { achieved: 0, total: 0, name: 'Junior Developer' },
+      'mid-level': { achieved: 0, total: 0, name: 'Mid-Level' },
+      'senior': { achieved: 0, total: 0, name: 'Senior Developer' },
+      'expert': { achieved: 0, total: 0, name: 'Expert/Principal' },
+      'special': { achieved: 0, total: 0, name: 'Especiales' }
+    };
+
+    badges.forEach(badge => {
+      if (levels[badge.category]) {
+        levels[badge.category].total++;
+        if (badge.achieved) {
+          levels[badge.category].achieved++;
+        }
+      }
+    });
+
+    return levels;
   }, [badges]);
 
   // Navegación para móvil
@@ -818,17 +1099,36 @@ const EnhancedUserDashboard = () => {
               <div className="space-y-4 sm:space-y-6">
                 <PlanProgress user={userData} />
 
+                {/* Progreso de Insignias por Nivel */}
                 <div className="bg-linear-to-br from-gray-800/50 to-gray-900/50 border border-gray-700/50 rounded-xl p-4 sm:p-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-semibold text-white">Insignias</h3>
+                    <h3 className="text-lg font-semibold text-white">Progreso de Carrera</h3>
                     <span className="text-blue-400 text-sm font-medium">
                       {achievedBadges}/{totalBadges}
                     </span>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[1, 2, 3, 4, 5, 6].map(i => (
-                      <div key={i} className="aspect-square bg-gray-700/30 rounded-lg flex items-center justify-center">
-                        <div className="w-6 h-6 bg-gray-600 rounded-full"></div>
+                  <div className="space-y-4">
+                    {Object.entries(levelProgress).map(([level, data]) => (
+                      <div key={level}>
+                        <div className="flex justify-between text-sm mb-2">
+                          <span className="text-gray-300">{data.name}</span>
+                          <span className="text-gray-400">
+                            {data.achieved}/{data.total}
+                          </span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-2">
+                          <div 
+                            className="h-2 rounded-full transition-all duration-500"
+                            style={{ 
+                              width: `${data.total > 0 ? (data.achieved / data.total) * 100 : 0}%`,
+                              backgroundColor: 
+                                level === 'junior' ? '#10b981' :
+                                level === 'mid-level' ? '#3b82f6' :
+                                level === 'senior' ? '#8b5cf6' :
+                                level === 'expert' ? '#f59e0b' : '#ec4899'
+                            }}
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -836,7 +1136,7 @@ const EnhancedUserDashboard = () => {
                     onClick={() => setActiveTab('badges')}
                     className="w-full mt-4 py-2 text-sm text-gray-400 hover:text-white transition-colors border border-gray-600/30 hover:border-gray-500/50 rounded-lg"
                   >
-                    Ver todas
+                    Ver todas las insignias
                   </button>
                 </div>
 
@@ -913,12 +1213,12 @@ const EnhancedUserDashboard = () => {
         )}
 
         {activeTab === 'badges' && (
-          <div className="space-y-4 sm:space-y-6">
+          <div className="space-y-6 sm:space-y-8">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h2 className="text-xl sm:text-2xl font-bold text-white">Mis Insignias</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Mi Progreso de Carrera</h2>
               <div className="flex items-center gap-2 text-gray-400">
                 <FiAward className="text-yellow-400" />
-                <span>{achievedBadges} de {totalBadges} obtenidas</span>
+                <span>{achievedBadges} de {totalBadges} insignias obtenidas</span>
               </div>
             </div>
 
@@ -938,12 +1238,50 @@ const EnhancedUserDashboard = () => {
                   style={{ width: `${(achievedBadges / totalBadges) * 100}%` }}
                 />
               </div>
+
+              {/* Niveles de progreso */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
+                {Object.entries(levelProgress).map(([level, data]) => (
+                  <div key={level} className="text-center p-3 bg-gray-700/30 rounded-lg">
+                    <div className={`text-lg sm:text-xl font-bold ${
+                      level === 'junior' ? 'text-green-400' :
+                      level === 'mid-level' ? 'text-blue-400' :
+                      level === 'senior' ? 'text-purple-400' :
+                      level === 'expert' ? 'text-orange-400' : 'text-pink-400'
+                    }`}>
+                      {data.achieved}/{data.total}
+                    </div>
+                    <div className="text-gray-400 text-xs mt-1">{data.name}</div>
+                  </div>
+                ))}
+              </div>
             </div>
 
-            {/* Insignias por categoría */}
+            {/* Insignias por nivel */}
             {Object.entries(badgesByCategory).map(([category, categoryBadges]) => (
               <div key={category} className="space-y-4">
-                <h3 className="text-lg sm:text-xl font-bold text-white capitalize">{category}</h3>
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${
+                    category === 'junior' ? 'bg-green-500/10 border border-green-400/20' :
+                    category === 'mid-level' ? 'bg-blue-500/10 border border-blue-400/20' :
+                    category === 'senior' ? 'bg-purple-500/10 border border-purple-400/20' :
+                    category === 'expert' ? 'bg-orange-500/10 border border-orange-400/20' :
+                    'bg-pink-500/10 border border-pink-400/20'
+                  }`}>
+                    <FiAward className={
+                      category === 'junior' ? 'text-green-400' :
+                      category === 'mid-level' ? 'text-blue-400' :
+                      category === 'senior' ? 'text-purple-400' :
+                      category === 'expert' ? 'text-orange-400' : 'text-pink-400'
+                    } size={20} />
+                  </div>
+                  <h3 className="text-lg sm:text-xl font-bold text-white">
+                    {category === 'junior' ? 'Junior Developer' :
+                     category === 'mid-level' ? 'Mid-Level Developer' :
+                     category === 'senior' ? 'Senior Developer' :
+                     category === 'expert' ? 'Expert/Principal' : 'Insignias Especiales'}
+                  </h3>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   {categoryBadges.map(badge => (
                     <BadgeCard key={badge.id} badge={badge} />
