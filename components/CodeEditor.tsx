@@ -211,7 +211,7 @@ class CommandExecutor {
     switch (command) {
       case 'install':
         result = {
-          output: args.length === 1 
+          output: args.length === 1
             ? 'Instalando dependencias del package.json...\n Dependencias instaladas correctamente'
             : `Instalando paquete: ${args.slice(1).join(' ')}\n Paquete instalado correctamente`,
           icon: <FiPackage className="text-blue-400 inline mr-1" size={12} />
@@ -286,7 +286,7 @@ class CommandExecutor {
         break;
       case 'add':
         result = {
-          output: args[1] === '.' 
+          output: args[1] === '.'
             ? 'Añadiendo todos los archivos al staging...\n Archivos añadidos correctamente'
             : `Añadiendo archivo: ${args[1]}\n Archivo añadido al staging`,
           icon: <FiPlus className="text-green-400 inline mr-1" size={12} />
@@ -454,12 +454,12 @@ class CommandExecutor {
 }
 
 // Componente de pestañas
-const TabComponent = React.memo(({ 
-  tab, 
-  onTabClick, 
+const TabComponent = React.memo(({
+  tab,
+  onTabClick,
   onTabClose,
-  isActive 
-}: { 
+  isActive
+}: {
   tab: Tab;
   onTabClick: (tab: Tab) => void;
   onTabClose: (tabId: string) => void;
@@ -475,8 +475,8 @@ const TabComponent = React.memo(({
       className={`
         flex items-center gap-2 px-4 py-2 min-w-0 max-w-48 cursor-pointer border-r border-gray-700/50
         transition-all duration-200 group relative
-        ${isActive 
-          ? 'bg-gray-800/80 border-t-2 border-t-blue-400' 
+        ${isActive
+          ? 'bg-gray-800/80 border-t-2 border-t-blue-400'
           : 'bg-gray-800/40 hover:bg-gray-700/60'
         }
       `}
@@ -486,13 +486,13 @@ const TabComponent = React.memo(({
       {tab.isDirty && (
         <div className="w-2 h-2 rounded-full bg-yellow-400 flex-shrink-0" />
       )}
-      
+
       <FiFile className="text-blue-400 flex-shrink-0" size={14} />
-      
+
       <span className="text-sm text-gray-200 truncate flex-1">
         {tab.file.name}
       </span>
-      
+
       <button
         onClick={handleClose}
         className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-600/50 rounded transition-all duration-200 flex-shrink-0"
@@ -582,11 +582,10 @@ const FileTreeNode = React.memo(({
   return (
     <div className="select-none group">
       <div
-        className={`flex items-center px-3 py-2 hover:bg-blue-500/10 cursor-pointer transition-all duration-200 rounded-lg mx-2 border-l-2 ${
-          selectedFile?.id === node.id
+        className={`flex items-center px-3 py-2 hover:bg-blue-500/10 cursor-pointer transition-all duration-200 rounded-lg mx-2 border-l-2 ${selectedFile?.id === node.id
             ? 'bg-blue-500/20 border-blue-400'
             : 'border-transparent hover:border-blue-400/30'
-        }`}
+          }`}
         style={{ paddingLeft: `${level * 16 + 12}px` }}
       >
         {node.type === 'folder' ? (
@@ -821,9 +820,9 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
   }, [tabs, activeTabId]);
 
   // Obtener pestaña activa
-  const activeTab = useMemo(() => 
-    tabs.find(tab => tab.id === activeTabId) || null, 
-  [tabs, activeTabId]);
+  const activeTab = useMemo(() =>
+    tabs.find(tab => tab.id === activeTabId) || null,
+    [tabs, activeTabId]);
 
   // Efectos de responsive
   useEffect(() => {
@@ -862,7 +861,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
     setTabs(prevTabs => {
       // Verificar si el archivo ya está abierto
       const existingTab = prevTabs.find(tab => tab.file.id === file.id);
-      
+
       if (existingTab) {
         // Si ya existe, activar esa pestaña
         setActiveTabId(existingTab.id);
@@ -897,15 +896,15 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       if (tabIndex === -1) return prevTabs;
 
       const newTabs = prevTabs.filter(tab => tab.id !== tabId);
-      
+
       // Si cerramos la pestaña activa, activar otra
       if (tabId === activeTabId) {
         if (newTabs.length > 0) {
           // Intentar activar la pestaña a la derecha, o si no, la izquierda
-          const newActiveTab = tabIndex < newTabs.length 
-            ? newTabs[tabIndex] 
+          const newActiveTab = tabIndex < newTabs.length
+            ? newTabs[tabIndex]
             : newTabs[newTabs.length - 1];
-          
+
           setActiveTabId(newActiveTab.id);
           setCode(newActiveTab.file.content || '');
           setCurrentPath(newActiveTab.file.path || '');
@@ -925,9 +924,9 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
     setActiveTabId(tab.id);
     setCode(tab.file.content || '');
     setCurrentPath(tab.file.path || '');
-    
+
     // Actualizar estado activo de pestañas
-    setTabs(prevTabs => 
+    setTabs(prevTabs =>
       prevTabs.map(t => ({
         ...t,
         isActive: t.id === tab.id
@@ -1050,7 +1049,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
   const handleEditorChange = useCallback((value: string | undefined) => {
     const newCode = value || '';
     setCode(newCode);
-    
+
     // Marcar pestaña como modificada si el contenido cambió
     if (activeTab && activeTab.file.content !== newCode) {
       markTabAsDirty(activeTab.id, true);
@@ -1205,11 +1204,11 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
     setTabs(prevTabs =>
       prevTabs.map(tab =>
         tab.id === activeTab.id
-          ? { 
-              ...tab, 
-              file: { ...tab.file, content: code },
-              isDirty: false 
-            }
+          ? {
+            ...tab,
+            file: { ...tab.file, content: code },
+            isDirty: false
+          }
           : tab
       )
     );
@@ -1339,11 +1338,10 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
               <button
                 onClick={saveFile}
                 disabled={!activeTab?.isDirty}
-                className={`flex items-center px-2 lg:px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 border border-white/5 ${
-                  activeTab?.isDirty
+                className={`flex items-center px-2 lg:px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 border border-white/5 ${activeTab?.isDirty
                     ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-green-500/25'
                     : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                }`}
+                  }`}
               >
                 <FiSave className="mr-1 lg:mr-1.5 shrink-0" size={14} />
                 <span className="hidden sm:inline">Guardar</span>
@@ -1351,13 +1349,12 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
               <button
                 onClick={isRunning ? stopRun : runCode}
                 disabled={!activeFile}
-                className={`flex items-center px-2 lg:px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 border border-white/5 ${
-                  activeFile
+                className={`flex items-center px-2 lg:px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 border border-white/5 ${activeFile
                     ? isRunning
                       ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg hover:shadow-red-500/25'
                       : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-blue-500/25'
                     : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                }`}
+                  }`}
               >
                 <FiPlay className={`mr-1 lg:mr-1.5 shrink-0 ${isRunning ? 'rotate-90' : ''}`} size={14} />
                 <span className="hidden sm:inline">{isRunning ? 'Detener' : 'Ejecutar'}</span>
@@ -1374,7 +1371,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
 
         {/* Barra de pestañas */}
         {tabs.length > 0 && (
-          <div 
+          <div
             ref={tabsContainerRef}
             className="bg-gray-800/60 border-b border-gray-700/80 flex overflow-x-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent"
           >
@@ -1456,142 +1453,142 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center p-4 sm:p-6">
-  <div className="relative group text-center w-full max-w-4xl p-6 sm:p-8 lg:p-12 bg-gradient-to-br from-slate-900/95 to-slate-800/90 border border-slate-700/60 rounded-xl backdrop-blur-2xl shadow-2xl transition-all duration-500">
-    
-    {/* Efecto de fondo sutil */}
-    <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-cyan-500/5 blur-xl transition-all duration-700"></div>
+              <div className="relative group text-center w-full max-w-4xl p-6 sm:p-8 lg:p-12 bg-gradient-to-br from-slate-900/95 to-slate-800/90 border border-slate-700/60 rounded-xl backdrop-blur-2xl shadow-2xl transition-all duration-500">
 
-    {/* Header inspirado en VS Code - Siempre visible */}
-    <div className="relative mb-6 lg:mb-8">
-      <div className="flex items-center justify-center gap-4 mb-4">
-        <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-        <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-        <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-      </div>
-      <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">
-        LyxLang Studio
-      </h1>
-      <p className="text-slate-400 text-sm sm:text-base">Edición mejorada</p>
-    </div>
+                {/* Efecto de fondo sutil */}
+                <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-cyan-500/5 blur-xl transition-all duration-700"></div>
 
-    {/* Grid de contenido - Solo visible en desktop */}
-    <div className="hidden lg:block">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-left">
-        
-        {/* Columna Inicio */}
-        <div className="space-y-4">
-          <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Inicio</h3>
-          <div className="space-y-3">
-            {[
-              "Nuevo archivo...",
-              "Abrir archivo...",
-              "Abrir carpeta...",
-              "Clonar repositorio Git...",
-              "Conectarse a...",
-              "Generar nueva área de trabajo..."
-            ].map((item, index) => (
-              <div key={index} className="flex items-center gap-3 group/item">
-                <div className={`w-4 h-4 rounded border ${index === 1 || index === 4 || index === 5 ? 'bg-blue-500 border-blue-400' : 'border-slate-600'}`}></div>
-                <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">{item}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Columna Recientes */}
-        <div className="space-y-4">
-          <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Recientes</h3>
-          <div className="space-y-3">
-            {[
-              { name: "pacifika-x", path: "C:/Users/Usuario/Desktop/proyectos" },
-              { name: "vitobisco-base", path: "C:/Users/Usuario/Desktop/proyectos/vitobisco" },
-              { name: "chocomarket-frontend", path: "C:/Users/Usuario/Desktop/proyectos..." },
-              { name: "chocomarket-backend", path: "C:/Users/Usuario/Desktop/proyectos..." }
-            ].map((project, index) => (
-              <div key={index} className="group/item cursor-pointer">
-                <div className="text-slate-200 group-hover/item:text-white transition-colors font-medium text-sm">
-                  {project.name}
+                {/* Header inspirado en VS Code - Siempre visible */}
+                <div className="relative mb-6 lg:mb-8">
+                  <div className="flex items-center justify-center gap-4 mb-4">
+                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  </div>
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">
+                    LyxLang Studio
+                  </h1>
+                  <p className="text-slate-400 text-sm sm:text-base">Edición mejorada</p>
                 </div>
-                <div className="text-slate-500 text-xs truncate group-hover/item:text-slate-300 transition-colors">
-                  {project.path}
+
+                {/* Grid de contenido - Solo visible en desktop */}
+                <div className="hidden lg:block">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-left">
+
+                    {/* Columna Inicio */}
+                    <div className="space-y-4">
+                      <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Inicio</h3>
+                      <div className="space-y-3">
+                        {[
+                          "Nuevo archivo...",
+                          "Abrir archivo...",
+                          "Abrir carpeta...",
+                          "Clonar repositorio Git...",
+                          "Conectarse a...",
+                          "Generar nueva área de trabajo..."
+                        ].map((item, index) => (
+                          <div key={index} className="flex items-center gap-3 group/item">
+                            <div className={`w-4 h-4 rounded border ${index === 1 || index === 4 || index === 5 ? 'bg-blue-500 border-blue-400' : 'border-slate-600'}`}></div>
+                            <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Columna Recientes */}
+                    <div className="space-y-4">
+                      <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Recientes</h3>
+                      <div className="space-y-3">
+                        {[
+                          { name: "pacifika-x", path: "C:/Users/Usuario/Desktop/proyectos" },
+                          { name: "vitobisco-base", path: "C:/Users/Usuario/Desktop/proyectos/vitobisco" },
+                          { name: "chocomarket-frontend", path: "C:/Users/Usuario/Desktop/proyectos..." },
+                          { name: "chocomarket-backend", path: "C:/Users/Usuario/Desktop/proyectos..." }
+                        ].map((project, index) => (
+                          <div key={index} className="group/item cursor-pointer">
+                            <div className="text-slate-200 group-hover/item:text-white transition-colors font-medium text-sm">
+                              {project.name}
+                            </div>
+                            <div className="text-slate-500 text-xs truncate group-hover/item:text-slate-300 transition-colors">
+                              {project.path}
+                            </div>
+                          </div>
+                        ))}
+                        <div className="text-blue-400 text-sm cursor-pointer hover:text-blue-300 transition-colors">
+                          Más...
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Columna Tutoriales */}
+                    <div className="space-y-4">
+                      <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Tutoriales</h3>
+                      <div className="space-y-3">
+                        {[
+                          { title: "Meet BLACKBOX, the Best AI Coding Agent", completed: true },
+                          { title: "Welcome to AI Toolkit", completed: false },
+                          { title: "Modernize with Copilot", completed: true },
+                          { title: "Get Started with Java Development", completed: false },
+                          { title: "Getting Started with Container Tools", completed: false }
+                        ].map((tutorial, index) => (
+                          <div key={index} className="flex items-center gap-3 group/item">
+                            <div className={`w-4 h-4 rounded border ${tutorial.completed ? 'bg-green-500 border-green-400' : 'border-slate-600'}`}></div>
+                            <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">{tutorial.title}</span>
+                          </div>
+                        ))}
+                        <div className="text-blue-400 text-sm cursor-pointer hover:text-blue-300 transition-colors">
+                          Más...
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Footer con información de estado - Solo visible en desktop */}
+                  <div className="mt-8 pt-6 border-t border-slate-700/50">
+                    <div className="flex items-center justify-center gap-6 text-slate-500 text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                        <span>Listo</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <FiCode className="text-slate-400" />
+                        <span>TypeScript</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                        <span>Conectado</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Mensaje para móvil/tablet - Solo visible en móvil y tablet */}
+                <div className="lg:hidden text-center space-y-4 mt-6">
+                  <div className="text-slate-300 text-sm">
+                    Abre un archivo para comenzar a programar
+                  </div>
+                  <div className="flex justify-center gap-3">
+                    <button
+                      onClick={() => addNewItem()}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      <FiFilePlus size={16} />
+                      Nuevo archivo
+                    </button>
+                    <button
+                      onClick={() => addNewItem(undefined, 'folder')}
+                      className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+                    >
+                      <FiFolderPlus size={16} />
+                      Nueva carpeta
+                    </button>
+                  </div>
+                  <div className="text-slate-500 text-xs mt-4">
+                    Usa el menú lateral para navegar por los archivos
+                  </div>
                 </div>
               </div>
-            ))}
-            <div className="text-blue-400 text-sm cursor-pointer hover:text-blue-300 transition-colors">
-              Más...
             </div>
-          </div>
-        </div>
-
-        {/* Columna Tutoriales */}
-        <div className="space-y-4">
-          <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Tutoriales</h3>
-          <div className="space-y-3">
-            {[
-              { title: "Meet BLACKBOX, the Best AI Coding Agent", completed: true },
-              { title: "Welcome to AI Toolkit", completed: false },
-              { title: "Modernize with Copilot", completed: true },
-              { title: "Get Started with Java Development", completed: false },
-              { title: "Getting Started with Container Tools", completed: false }
-            ].map((tutorial, index) => (
-              <div key={index} className="flex items-center gap-3 group/item">
-                <div className={`w-4 h-4 rounded border ${tutorial.completed ? 'bg-green-500 border-green-400' : 'border-slate-600'}`}></div>
-                <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">{tutorial.title}</span>
-              </div>
-            ))}
-            <div className="text-blue-400 text-sm cursor-pointer hover:text-blue-300 transition-colors">
-              Más...
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer con información de estado - Solo visible en desktop */}
-      <div className="mt-8 pt-6 border-t border-slate-700/50">
-        <div className="flex items-center justify-center gap-6 text-slate-500 text-sm">
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-            <span>Listo</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <FiCode className="text-slate-400" />
-            <span>TypeScript</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-            <span>Conectado</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* Mensaje para móvil/tablet - Solo visible en móvil y tablet */}
-    <div className="lg:hidden text-center space-y-4 mt-6">
-      <div className="text-slate-300 text-sm">
-        Abre un archivo para comenzar a programar
-      </div>
-      <div className="flex justify-center gap-3">
-        <button 
-          onClick={() => addNewItem()}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          <FiFilePlus size={16} />
-          Nuevo archivo
-        </button>
-        <button 
-          onClick={() => addNewItem(undefined, 'folder')}
-          className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
-        >
-          <FiFolderPlus size={16} />
-          Nueva carpeta
-        </button>
-      </div>
-      <div className="text-slate-500 text-xs mt-4">
-        Usa el menú lateral para navegar por los archivos
-      </div>
-    </div>
-  </div>
-</div>
           )}
         </div>
 
