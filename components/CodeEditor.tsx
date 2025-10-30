@@ -61,8 +61,8 @@ interface FileNode {
 
 // Memoización de componentes para evitar re-renders innecesarios
 const MemoizedFileIcon = React.memo(({ type }: { type: 'file' | 'folder' }) => (
-  type === 'folder' ? 
-    <FiFolder className="text-blue-400 mr-2 shrink-0" size={16} /> : 
+  type === 'folder' ?
+    <FiFolder className="text-blue-400 mr-2 shrink-0" size={16} /> :
     <FiFile className="text-gray-400 mr-4 ml-1 shrink-0" size={14} />
 ));
 
@@ -103,13 +103,13 @@ class TypeScriptCompiler {
       const script = document.createElement('script');
       script.src = 'https://unpkg.com/typescript@latest/lib/typescript.js';
       script.async = true;
-      
+
       script.onload = () => {
         this.ts = (window as any).ts;
         this.initialized = true;
         resolve();
       };
-      
+
       script.onerror = reject;
       document.head.appendChild(script);
     });
@@ -164,7 +164,7 @@ class CommandExecutor {
   private commandCache: Map<string, { output: string; icon: React.ReactNode }> = new Map();
 
   constructor(
-    fileSystem: FileNode[], 
+    fileSystem: FileNode[],
     setFiles: React.Dispatch<React.SetStateAction<FileNode[]>>,
     setTerminalOutput: React.Dispatch<React.SetStateAction<string[]>>
   ) {
@@ -219,14 +219,14 @@ class CommandExecutor {
           };
         }
         break;
-      
+
       case 'start':
         result = {
           output: 'Iniciando servidor de desarrollo...\n Servidor corriendo en http://localhost:3000',
           icon: <FiServer className="text-green-400 inline mr-1" size={12} />
         };
         break;
-      
+
       case 'run':
         const script = args[1];
         switch (script) {
@@ -255,7 +255,7 @@ class CommandExecutor {
             };
         }
         break;
-      
+
       default:
         result = {
           output: `Comando npm '${command}' no reconocido`,
@@ -283,14 +283,14 @@ class CommandExecutor {
           icon: <FiGitBranch className="text-orange-400 inline mr-1" size={12} />
         };
         break;
-      
+
       case 'status':
         result = {
           output: 'Estado del repositorio:\n M src/main.ts\n?? nuevo_archivo.ts\n Working tree clean',
           icon: <FiInfo className="text-blue-400 inline mr-1" size={12} />
         };
         break;
-      
+
       case 'add':
         if (args[1] === '.') {
           result = {
@@ -304,7 +304,7 @@ class CommandExecutor {
           };
         }
         break;
-      
+
       case 'commit':
         const message = args.slice(1).join(' ').replace(/-m\s*['"]?/, '').replace(/['"]?$/, '');
         result = {
@@ -312,42 +312,42 @@ class CommandExecutor {
           icon: <FiCheck className="text-green-400 inline mr-1" size={12} />
         };
         break;
-      
+
       case 'push':
         result = {
           output: 'Enviendo cambios al repositorio remoto...\n Cambios enviados correctamente',
           icon: <FiUpload className="text-blue-400 inline mr-1" size={12} />
         };
         break;
-      
+
       case 'pull':
         result = {
           output: 'Obteniendo cambios del repositorio remoto...\n Cambios obtenidos correctamente',
           icon: <FiDownload className="text-blue-400 inline mr-1" size={12} />
         };
         break;
-      
+
       case 'branch':
         result = {
           output: 'Ramas disponibles:\n* main\n  development\n  feature/nueva-funcionalidad',
           icon: <FiGitBranch className="text-purple-400 inline mr-1" size={12} />
         };
         break;
-      
+
       case 'checkout':
         result = {
           output: `Cambiando a rama: ${args[1]}\n Cambio de rama exitoso`,
           icon: <FiGitBranch className="text-yellow-400 inline mr-1" size={12} />
         };
         break;
-      
+
       case 'clone':
         result = {
           output: `Clonando repositorio: ${args[1]}\n Repositorio clonado correctamente`,
           icon: <FiDownload className="text-green-400 inline mr-1" size={12} />
         };
         break;
-      
+
       default:
         result = {
           output: `Comando git '${command}' no reconocido`,
@@ -375,25 +375,25 @@ class CommandExecutor {
           icon: <FiFolder className="text-blue-400 inline mr-1" size={12} />
         };
         break;
-      
+
       case 'pwd':
         result = {
           output: `Directorio actual: ${window.location.pathname}`,
           icon: <FiHardDrive className="text-gray-400 inline mr-1" size={12} />
         };
         break;
-      
+
       case 'echo':
         result = {
           output: args.slice(1).join(' '),
           icon: <FiFile className="text-gray-400 inline mr-1" size={12} />
         };
         break;
-      
+
       case 'clear':
         this.setTerminalOutput([]);
         return { output: '', icon: null };
-      
+
       case 'cat':
         if (args[1]) {
           const file = this.findFile(args[1]);
@@ -408,28 +408,28 @@ class CommandExecutor {
           };
         }
         break;
-      
+
       case 'mkdir':
         result = {
           output: `Creando directorio: ${args[1]}\n Directorio creado correctamente`,
           icon: <FiFolderPlus className="text-green-400 inline mr-1" size={12} />
         };
         break;
-      
+
       case 'touch':
         result = {
           output: `Creando archivo: ${args[1]}\n Archivo creado correctamente`,
           icon: <FiFilePlus className="text-green-400 inline mr-1" size={12} />
         };
         break;
-      
+
       case 'rm':
         result = {
           output: `Eliminando: ${args[1]}\n Eliminado correctamente`,
           icon: <FiTrash2 className="text-red-400 inline mr-1" size={12} />
         };
         break;
-      
+
       default:
         result = {
           output: `Comando '${command}' no encontrado`,
@@ -484,15 +484,15 @@ class CommandExecutor {
 }
 
 // Componente de árbol de archivos virtualizado para mejor rendimiento
-const VirtualizedFileTree = React.memo(({ 
-  nodes, 
-  selectedFile, 
-  onFileSelect, 
+const VirtualizedFileTree = React.memo(({
+  nodes,
+  selectedFile,
+  onFileSelect,
   onToggleFolder,
   onStartRename,
   onAddNewItem,
   onDeleteItem,
-  level = 0 
+  level = 0
 }: {
   nodes: FileNode[];
   selectedFile: FileNode | null;
@@ -558,11 +558,10 @@ const FileTreeNode = React.memo(({
   return (
     <div className="select-none group">
       <div
-        className={`flex items-center px-3 py-2 hover:bg-blue-500/10 cursor-pointer transition-all duration-200 rounded-lg mx-2 border-l-2 ${
-          selectedFile?.id === node.id
+        className={`flex items-center px-3 py-2 hover:bg-blue-500/10 cursor-pointer transition-all duration-200 rounded-lg mx-2 border-l-2 ${selectedFile?.id === node.id
             ? 'bg-blue-500/20 border-blue-400'
             : 'border-transparent hover:border-blue-400/30'
-        }`}
+          }`}
         style={{ paddingLeft: `${level * 16 + 12}px` }}
       >
         {node.type === 'folder' ? (
@@ -642,13 +641,13 @@ const FileTreeNode = React.memo(({
 // Hook personalizado para gestión de estado optimizada
 const useOptimizedState = <T,>(initialState: T) => {
   const [state, setState] = useState(initialState);
-  
+
   const setOptimizedState = useCallback((newState: T | ((prev: T) => T)) => {
     setState(prev => {
-      const nextState = typeof newState === 'function' 
-        ? (newState as (prev: T) => T)(prev) 
+      const nextState = typeof newState === 'function'
+        ? (newState as (prev: T) => T)(prev)
         : newState;
-      
+
       // Evitar re-renders si el estado es igual
       if (JSON.stringify(prev) === JSON.stringify(nextState)) {
         return prev;
@@ -801,12 +800,12 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
   // Throttle para eventos de resize
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
-    
+
     const checkScreenSize = () => {
       const width = window.innerWidth;
       setIsMobile(width < 768);
       setIsTablet(width >= 768 && width < 1024);
-      
+
       if (width >= 768) {
         setSidebarOpen(true);
       } else {
@@ -821,7 +820,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
 
     checkScreenSize();
     window.addEventListener('resize', handleResize, { passive: true });
-    
+
     return () => {
       window.removeEventListener('resize', handleResize);
       clearTimeout(timeoutId);
@@ -912,7 +911,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       };
       return removeNode(prevFiles);
     });
-    
+
     if (selectedFile?.id === id) {
       setSelectedFile(null);
       setCode('');
@@ -925,7 +924,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
 
     setTerminalInput('');
     await commandExecutor.executeCommand(command);
-    
+
     setTimeout(() => {
       terminalInputRef.current?.focus();
     }, 100);
@@ -1001,7 +1000,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
 
   // Inicializar compilador en cliente
   useEffect(() => {
-    compiler.initialize().catch(() => {});
+    compiler.initialize().catch(() => { });
   }, [compiler]);
 
   const appendRunLog = useCallback((level: 'log' | 'warn' | 'error' | 'info', message: string) => {
@@ -1066,7 +1065,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       workerRef.current = worker;
 
       const timeoutId = setTimeout(() => {
-        try { worker.terminate(); } catch {}
+        try { worker.terminate(); } catch { }
         workerRef.current = null;
         appendRunLog('warn', 'Tiempo de ejecución agotado (3s)');
         setIsRunning(false);
@@ -1078,7 +1077,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
           appendRunLog(data.level || 'log', data.message);
         } else if (data?.type === 'done') {
           clearTimeout(timeoutId);
-          try { worker.terminate(); } catch {}
+          try { worker.terminate(); } catch { }
           workerRef.current = null;
           setIsRunning(false);
           appendRunLog('info', 'Ejecución finalizada');
@@ -1088,7 +1087,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       worker.onerror = (e) => {
         clearTimeout(timeoutId);
         appendRunLog('error', e.message || 'Error en ejecución');
-        try { worker.terminate(); } catch {}
+        try { worker.terminate(); } catch { }
         workerRef.current = null;
         setIsRunning(false);
       };
@@ -1117,7 +1116,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       };
       return updateFileContent(prevFiles);
     });
-    
+
     setSelectedFile(prev => prev ? { ...prev, content: code } : null);
   }, [selectedFile, code, setFiles]);
 
@@ -1212,7 +1211,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
             selectedFile={selectedFile}
             onFileSelect={handleFileSelect}
             onToggleFolder={toggleFolder}
-            onStartRename={() => {}}
+            onStartRename={() => { }}
             onAddNewItem={addNewItem}
             onDeleteItem={deleteItem}
           />
@@ -1322,11 +1321,113 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center max-w-md w-full p-6 lg:p-8 bg-gray-800/50 rounded-2xl border border-gray-700 backdrop-blur-lg">
-                <FiCode className="text-3xl text-blue-400 mb-4 mx-auto" />
-                <h3 className="text-xl lg:text-2xl font-bold text-white mb-3">Editor de Código</h3>
-                <p className="text-gray-400 mb-6">Selecciona un archivo para empezar</p>
+            <div className="flex-1 flex items-center justify-center p-6">
+              <div className="relative group text-center max-w-4xl w-full p-8 lg:p-12 bg-gradient-to-br from-slate-900/95 to-slate-800/90 border border-slate-700/60 rounded-xl backdrop-blur-2xl shadow-2xl transition-all duration-500 hover:shadow-[0_0_50px_rgba(120,119,198,0.3)] hover:border-slate-600/80">
+
+                {/* Efecto de fondo sutil */}
+                <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-cyan-500/5 blur-xl transition-all duration-700"></div>
+
+                {/* Header inspirado en VS Code */}
+                <div className="relative mb-8">
+                  <div className="flex items-center justify-center gap-4 mb-4">
+                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                  </div>
+                  <h1 className="text-2xl lg:text-3xl font-bold text-white mb-2">
+                    LyxLang Studio
+                  </h1>
+                  <p className="text-slate-400 text-sm">Edición mejorada</p>
+                </div>
+
+                {/* Grid de contenido similar a la imagen */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-left">
+
+                  {/* Columna Inicio */}
+                  <div className="space-y-4">
+                    <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Inicio</h3>
+                    <div className="space-y-3">
+                      {[
+                        "Nuevo archivo...",
+                        "Abrir archivo...",
+                        "Abrir carpeta...",
+                        "Clonar repositorio Git...",
+                        "Conectarse a...",
+                        "Generar nueva área de trabajo..."
+                      ].map((item, index) => (
+                        <div key={index} className="flex items-center gap-3 group/item">
+                          <div className={`w-4 h-4 rounded border ${index === 1 || index === 4 || index === 5 ? 'bg-blue-500 border-blue-400' : 'border-slate-600'}`}></div>
+                          <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">{item}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Columna Recientes */}
+                  <div className="space-y-4">
+                    <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Recientes</h3>
+                    <div className="space-y-3">
+                      {[
+                        { name: "pacifika-x", path: "C:/Users/Usuario/Desktop/proyectos" },
+                        { name: "vitobisco-base", path: "C:/Users/Usuario/Desktop/proyectos/vitobisco" },
+                        { name: "chocomarket-frontend", path: "C:/Users/Usuario/Desktop/proyectos..." },
+                        { name: "chocomarket-backend", path: "C:/Users/Usuario/Desktop/proyectos..." }
+                      ].map((project, index) => (
+                        <div key={index} className="group/item cursor-pointer">
+                          <div className="text-slate-200 group-hover/item:text-white transition-colors font-medium text-sm">
+                            {project.name}
+                          </div>
+                          <div className="text-slate-500 text-xs truncate group-hover/item:text-slate-300 transition-colors">
+                            {project.path}
+                          </div>
+                        </div>
+                      ))}
+                      <div className="text-blue-400 text-sm cursor-pointer hover:text-blue-300 transition-colors">
+                        Más...
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Columna Tutoriales */}
+                  <div className="space-y-4">
+                    <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Tutoriales</h3>
+                    <div className="space-y-3">
+                      {[
+                        { title: "Meet BLACKBOX, the Best AI Coding Agent", completed: true },
+                        { title: "Welcome to AI Toolkit", completed: false },
+                        { title: "Modernize with Copilot", completed: true },
+                        { title: "Get Started with Java Development", completed: false },
+                        { title: "Getting Started with Container Tools", completed: false }
+                      ].map((tutorial, index) => (
+                        <div key={index} className="flex items-center gap-3 group/item">
+                          <div className={`w-4 h-4 rounded border ${tutorial.completed ? 'bg-green-500 border-green-400' : 'border-slate-600'}`}></div>
+                          <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">{tutorial.title}</span>
+                        </div>
+                      ))}
+                      <div className="text-blue-400 text-sm cursor-pointer hover:text-blue-300 transition-colors">
+                        Más...
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer con información de estado */}
+                <div className="mt-8 pt-6 border-t border-slate-700/50">
+                  <div className="flex items-center justify-center gap-6 text-slate-500 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                      <span>Listo</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <FiCode className="text-slate-400" />
+                      <span>TypeScript</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                      <span>Conectado</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -1354,7 +1455,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                   </button>
                 </div>
               </div>
-              
+
               <div
                 ref={terminalRef}
                 className="flex-1 p-4 overflow-y-auto text-xs lg:text-sm bg-gray-900 min-h-0 terminal-output"
@@ -1364,7 +1465,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                     {line}
                   </div>
                 ))}
-                
+
                 <div className="flex items-center text-gray-300 font-mono mt-2">
                   <span className="text-green-400 mr-2">$</span>
                   <input
