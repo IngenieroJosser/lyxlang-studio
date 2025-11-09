@@ -16,7 +16,8 @@ import {
   FiCoffee,
   FiAward,
   FiUser,
-  FiMenu
+  FiMenu,
+  FiBook
 } from 'react-icons/fi';
 import Image from 'next/image';
 
@@ -149,6 +150,13 @@ const HomePage = () => {
             <a href="#about" className="text-gray-400 hover:text-white transition">
               Comunidad
             </a>
+            <button
+              onClick={() => router.push('/docs')}
+              className="text-gray-400 hover:text-white transition flex items-center gap-2"
+            >
+              <FiBook size={16} />
+              Documentación
+            </button>
             <a
               href="https://github.com/IngenieroJosser/lyxlang-studio"
               target="_blank"
@@ -161,6 +169,14 @@ const HomePage = () => {
 
           {/* 🔸 Botones Desktop */}
           <div className="hidden md:flex items-center gap-3">
+            <button
+              onClick={() => router.push('/docs')}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 text-gray-300 hover:text-white transition-all duration-200"
+            >
+              <FiBook size={18} />
+              Docs
+            </button>
+
             <button
               onClick={() => router.push('/iniciar-sesion')}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 text-gray-300 hover:text-white transition-all duration-200"
@@ -179,6 +195,13 @@ const HomePage = () => {
 
           {/* 🔸 Mobile Menu */}
           <div className="flex md:hidden items-center gap-3">
+            <button
+              onClick={() => router.push('/docs')}
+              className="p-2 rounded-md bg-gray-800 border border-gray-700 hover:bg-gray-700 text-gray-300 hover:text-white transition"
+            >
+              <FiBook size={20} />
+            </button>
+
             <button
               onClick={() => router.push('/iniciar-sesion')}
               className="p-2 rounded-md bg-gray-800 border border-gray-700 hover:bg-gray-700 text-gray-300 hover:text-white transition"
@@ -211,6 +234,16 @@ const HomePage = () => {
             <a href="#about" className="text-gray-300 hover:text-white">
               Comunidad
             </a>
+            <button
+              onClick={() => {
+                router.push('/docs');
+                setMenuOpen(false);
+              }}
+              className="text-gray-300 hover:text-white flex items-center gap-2"
+            >
+              <FiBook size={16} />
+              Documentación
+            </button>
             <a
               href="https://github.com/IngenieroJosser/lyxlang-studio"
               target="_blank"
@@ -260,6 +293,14 @@ const HomePage = () => {
                   className="group-hover:translate-x-1 transition-transform"
                   size={20}
                 />
+              </button>
+
+              <button
+                onClick={() => router.push('/docs')}
+                className="group bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 flex items-center space-x-3"
+              >
+                <FiBook size={20} />
+                <span>Ver Documentación</span>
               </button>
 
               <a
@@ -351,35 +392,87 @@ const HomePage = () => {
               ¡El código también puede ser una aventura!
             </p>
 
-            <button
-              onClick={() => router.push('/editor')}
-              className="group bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 shadow-2xl hover:shadow-purple-500/25 transform hover:scale-105 flex items-center space-x-3 mx-auto"
-            >
-              <FiCoffee size={20} />
-              <span>Probar LyxLang Studio</span>
-              <FiArrowRight
-                className="group-hover:translate-x-1 transition-transform"
-                size={20}
-              />
-            </button>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <button
+                onClick={() => router.push('/editor')}
+                className="group bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 shadow-2xl hover:shadow-purple-500/25 transform hover:scale-105 flex items-center space-x-3"
+              >
+                <FiCoffee size={20} />
+                <span>Probar LyxLang Studio</span>
+                <FiArrowRight
+                  className="group-hover:translate-x-1 transition-transform"
+                  size={20}
+                />
+              </button>
+
+              <button
+                onClick={() => router.push('/docs')}
+                className="group bg-gray-800 hover:bg-gray-700 border border-gray-600 text-white px-8 py-4 rounded-xl font-semibold text-lg transition-all duration-200 flex items-center space-x-3"
+              >
+                <FiBook size={20} />
+                <span>Leer Documentación</span>
+              </button>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-gray-800 py-12 text-center">
-        <p className="text-gray-500 text-sm">
-          © {new Date().getFullYear()} LyxLang Studio — desarrollado con ❤️ por{' '}
-          <a
-            href="https://github.com/IngenieroJosser"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 transition"
-          >
-            Josser Córdoba Rivas
-          </a>
-        </p>
+        <div className="container mx-auto px-6">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
+            <div className="flex items-center gap-2">
+              <Image
+                src="/favicon.ico"
+                alt="LyxLang logo"
+                width={24}
+                height={24}
+                className="rounded-lg"
+              />
+              <span className="text-lg font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+                LyxLang Studio
+              </span>
+            </div>
+            
+            <div className="flex flex-wrap justify-center gap-6">
+              <button
+                onClick={() => router.push('/docs')}
+                className="text-gray-400 hover:text-white transition flex items-center gap-2"
+              >
+                <FiBook size={16} />
+                Documentación
+              </button>
+              <a
+                href="https://github.com/IngenieroJosser/lyxlang-studio"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-400 hover:text-white transition flex items-center gap-2"
+              >
+                <FiGithub size={16} />
+                GitHub
+              </a>
+              <button
+                onClick={() => router.push('/editor')}
+                className="text-gray-400 hover:text-white transition flex items-center gap-2"
+              >
+                <FiPlay size={16} />
+                Probar Editor
+              </button>
+            </div>
+          </div>
 
+          <p className="text-gray-500 text-sm">
+            © {new Date().getFullYear()} LyxLang Studio — desarrollado con ❤️ por{' '}
+            <a
+              href="https://github.com/IngenieroJosser"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-400 hover:text-blue-300 transition"
+            >
+              Josser Córdoba Rivas
+            </a>
+          </p>
+        </div>
       </footer>
 
       <style jsx>{`

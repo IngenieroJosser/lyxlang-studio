@@ -9,6 +9,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-bricolage-grotesque: var(--font-bricolage-grotesque);
+  --font-tinos: var(--font-tinos);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -24,9 +25,40 @@ body {
   font-family: var(--font-bricolage-grotesque);
 }
 
+/* Para el editor de código y elementos que necesiten la fuente monoespaciada */
+code, .monaco-editor, .terminal-output, .terminal-output input {
+  font-family: var(--font-bricolage-grotesque), 'Space Mono', 'Courier New', monospace;
+}
 
-code {
-  font-family: var(--font-bricolage-grotesque);
+/* Selección principal mejorada */
+::selection {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.4) 0%, rgba(236, 72, 153, 0.4) 100%);
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(5px);
+}
+
+::-moz-selection {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.4) 0%, rgba(236, 72, 153, 0.4) 100%);
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Selección específica para código */
+code::selection,
+.monaco-editor ::selection,
+.terminal-output ::selection {
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.5) 0%, rgba(139, 92, 246, 0.5) 100%);
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+code::-moz-selection,
+.monaco-editor ::-moz-selection,
+.terminal-output ::-moz-selection {
+  background: linear-gradient(135deg, rgba(96, 165, 250, 0.5) 0%, rgba(139, 92, 246, 0.5) 100%);
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 ::selection {
