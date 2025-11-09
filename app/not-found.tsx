@@ -174,7 +174,7 @@ const NotFoundPage = () => {
             <div className="space-y-2 text-sm text-gray-400">
               <div className="flex items-center space-x-2 hover:text-white transition-colors cursor-pointer">
                 <FiFile size={14} />
-                <span>Documentación</span>
+                <Link href='/docs'>Documentación</Link>
               </div>
               <div className="flex items-center space-x-2 hover:text-white transition-colors cursor-pointer">
                 <FiCode size={14} />
@@ -182,7 +182,7 @@ const NotFoundPage = () => {
               </div>
               <div className="flex items-center space-x-2 hover:text-white transition-colors cursor-pointer">
                 <FiGithub size={14} />
-                <span>Repositorio GitHub</span>
+                <a href='https://github.com/IngenieroJosser/lyxlang-studio'>Repositorio GitHub</a>
               </div>
             </div>
           </div>
