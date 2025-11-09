@@ -11,6 +11,18 @@
   <img src="./public/lyxlang-lyxlang-studio-with-text-removebg-preview.png" alt="LyxLang Banner" width="600" />
 </p>
 
+<p align="center">
+  <a href="https://github.com/IngenieroJosser/lyxlang-studio/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="MIT License" />
+  </a>
+  <a href="https://github.com/IngenieroJosser/lyxlang-studio">
+    <img src="https://img.shields.io/github/stars/IngenieroJosser/lyxlang-studio?style=social" alt="GitHub Stars" />
+  </a>
+  <a href="https://github.com/IngenieroJosser/lyxlang-studio/issues">
+    <img src="https://img.shields.io/github/issues/IngenieroJosser/lyxlang-studio" alt="Issues" />
+  </a>
+</p>
+
 ---
 
 ## ✨ Características principales
