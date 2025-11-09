@@ -369,8 +369,17 @@ const HomePage = () => {
       {/* Footer */}
       <footer className="relative z-10 border-t border-gray-800 py-12 text-center">
         <p className="text-gray-500 text-sm">
-          Hecho con ❤️ por la comunidad — LyxLang Studio © {new Date().getFullYear()}
+          © {new Date().getFullYear()} LyxLang Studio — desarrollado con ❤️ por{' '}
+          <a
+            href="https://github.com/IngenieroJosser"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:text-blue-300 transition"
+          >
+            Josser Córdoba Rivas
+          </a>
         </p>
+
       </footer>
 
       <style jsx>{`
