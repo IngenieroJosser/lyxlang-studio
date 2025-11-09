@@ -23,9 +23,13 @@
   </a>
 </p>
 
+<footer>
+  <p>© 2025 LyxLang Studio — Created by <a href="https://github.com/IngenieroJosser">Josser Córdoba Rivas</a></p>
+</footer>
+
 ---
 
-## ✨ Características principales
+## Características principales
 
 - **Editor Inteligente y Transparente** — Rápido, minimalista y optimizado para TypeScript, JavaScript y más.  
 - **Conecta tu Repositorio** — Importa proyectos desde GitHub o GitLab y colabora en tiempo real.  
