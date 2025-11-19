@@ -1,1 +1,7 @@
 export * from '@/lib/user-dashboard/user-dashboard-types'
+export * from '@/lib/api-request/api-request.dto'
+export * from '@/lib/auth/auth-type'
+export * from '@/lib/project/project.type'
+export * from '@/lib/file/file-types'
+export * from '@/lib/compiler/compiler.types'
+export * from '@/lib/user/user.types'
