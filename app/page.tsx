@@ -469,7 +469,7 @@ const HomePage = () => {
               rel="noopener noreferrer"
               className="text-blue-400 hover:text-blue-300 transition"
             >
-              Josser Córdoba Rivas
+              Josser Córdoba Rivas & Erick Manuel Moreno Palacios
             </a>
           </p>
         </div>

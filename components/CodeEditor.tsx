@@ -34,19 +34,20 @@ import {
   FiPackage,
   FiServer,
   FiCpu,
-  FiHardDrive
+  FiHardDrive,
+  FiLogOut
 } from 'react-icons/fi';
 import Image from 'next/image';
+import { useAuth } from '@/hooks/useAuth';
 
 // Carga diferida de Monaco Editor
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
   ssr: false,
   loading: () => (
     <div className="flex flex-col items-center justify-center h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-      {/* Logo LyxLang animado */}
       <div className="relative mb-8">
         <div className="absolute inset-0 rounded-3xl blur-xl bg-blue-500/20 animate-pulse" />
-        <div className="relative w-20 h-20 bg-gradient-to-br  rounded-3xl flex items-center justify-center shadow-2xl ring-2 ring-white/10">
+        <div className="relative w-20 h-20 bg-gradient-to-br rounded-3xl flex items-center justify-center shadow-2xl ring-2 ring-white/10">
           <div className="text-white font-bold text-xl tracking-wider">
             <Image 
               src='/lyxlang-lyxlang-studio-with-text-removebg-preview.png'
@@ -59,13 +60,11 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
         </div>
       </div>
 
-      {/* Spinner de carga */}
       <div className="relative mb-6">
         <div className="w-16 h-16 border-4 border-blue-400/20 rounded-full" />
         <div className="absolute top-0 left-0 w-16 h-16 border-4 border-t-blue-400 border-r-blue-400/30 border-b-blue-400/30 border-l-blue-400/30 rounded-full animate-spin" />
       </div>
 
-      {/* Texto y progreso */}
       <div className="text-center space-y-3">
         <h3 className="text-xl font-semibold text-white bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
           LyxLang Studio
@@ -524,7 +523,6 @@ const TabComponent = React.memo(({
       `}
       onClick={() => onTabClick(tab)}
     >
-      {/* Indicador de archivo modificado */}
       {tab.isDirty && (
         <div className="w-2 h-2 rounded-full bg-yellow-400 flex-shrink-0" />
       )}
@@ -542,7 +540,6 @@ const TabComponent = React.memo(({
         <FiX size={12} className="text-gray-400 hover:text-white" />
       </button>
 
-      {/* Efecto de resplandor para pestaña activa */}
       {isActive && (
         <div className="absolute inset-0 bg-blue-500/5 rounded-t pointer-events-none" />
       )}
@@ -724,6 +721,9 @@ const useOptimizedState = <T,>(initialState: T) => {
 };
 
 const AdvancedCodeEditor = () => {
+  // Integración con el backend de autenticación
+  const { user, logout, isAuthenticated, loading: authLoading } = useAuth();
+
   // Estados principales
   const [files, setFiles] = useOptimizedState<FileNode[]>([
     {
@@ -901,18 +901,15 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
     if (file.type !== 'file') return;
 
     setTabs(prevTabs => {
-      // Verificar si el archivo ya está abierto
       const existingTab = prevTabs.find(tab => tab.file.id === file.id);
 
       if (existingTab) {
-        // Si ya existe, activar esa pestaña
         setActiveTabId(existingTab.id);
         setCode(existingTab.file.content || '');
         setCurrentPath(file.path || '');
         return prevTabs;
       }
 
-      // Crear nueva pestaña
       const newTab: Tab = {
         id: `tab-${file.id}-${Date.now()}`,
         file: { ...file },
@@ -920,7 +917,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
         isActive: true
       };
 
-      // Desactivar todas las pestañas anteriores y activar la nueva
       const updatedTabs = prevTabs.map(tab => ({ ...tab, isActive: false }));
       updatedTabs.push(newTab);
 
@@ -939,10 +935,8 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
 
       const newTabs = prevTabs.filter(tab => tab.id !== tabId);
 
-      // Si cerramos la pestaña activa, activar otra
       if (tabId === activeTabId) {
         if (newTabs.length > 0) {
-          // Intentar activar la pestaña a la derecha, o si no, la izquierda
           const newActiveTab = tabIndex < newTabs.length
             ? newTabs[tabIndex]
             : newTabs[newTabs.length - 1];
@@ -951,7 +945,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
           setCode(newActiveTab.file.content || '');
           setCurrentPath(newActiveTab.file.path || '');
         } else {
-          // No hay más pestañas
           setActiveTabId(null);
           setCode('');
           setCurrentPath('');
@@ -967,7 +960,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
     setCode(tab.file.content || '');
     setCurrentPath(tab.file.path || '');
 
-    // Actualizar estado activo de pestañas
     setTabs(prevTabs =>
       prevTabs.map(t => ({
         ...t,
@@ -1058,7 +1050,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       return removeNode(prevFiles);
     });
 
-    // Cerrar pestaña si el archivo está abierto
     const tabToClose = tabs.find(tab => tab.file.id === id);
     if (tabToClose) {
       closeTab(tabToClose.id);
@@ -1092,7 +1083,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
     const newCode = value || '';
     setCode(newCode);
 
-    // Marcar pestaña como modificada si el contenido cambió
     if (activeTab && activeTab.file.content !== newCode) {
       markTabAsDirty(activeTab.id, true);
     }
@@ -1226,7 +1216,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
   const saveFile = useCallback(() => {
     if (!activeTab) return;
 
-    // Actualizar contenido en el árbol de archivos
     setFiles(prevFiles => {
       const updateFileContent = (nodes: FileNode[]): FileNode[] => {
         return nodes.map(node => {
@@ -1242,7 +1231,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       return updateFileContent(prevFiles);
     });
 
-    // Actualizar contenido en la pestaña y quitar estado dirty
     setTabs(prevTabs =>
       prevTabs.map(tab =>
         tab.id === activeTab.id
@@ -1255,7 +1243,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       )
     );
 
-    // Actualizar archivo activo
     if (activeFile) {
       setCurrentPath(activeFile.path || '');
     }
@@ -1285,6 +1272,45 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
   }, [files, searchTerm]);
 
   const lineCount = useMemo(() => (code ? code.split('\n').length : 0), [code]);
+
+  // Si está cargando la autenticación, mostrar loading
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-900 to-gray-800">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto"></div>
+          <p className="mt-4 text-gray-300">Verificando autenticación...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Si no está autenticado, mostrar mensaje
+  if (!isAuthenticated) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-900 to-gray-800">
+        <div className="text-center p-8 bg-gray-800/80 rounded-2xl border border-gray-700/80 backdrop-blur-lg">
+          <div className="mb-6">
+            <Image 
+              src="/lyxlang-lyxlang-studio-with-text-removebg-preview.png"
+              alt="LyxLang Studio"
+              width={120}
+              height={40}
+              className="mx-auto"
+            />
+          </div>
+          <h2 className="text-2xl font-bold text-white mb-4">Acceso Requerido</h2>
+          <p className="text-gray-300 mb-6">Debes iniciar sesión para usar LyxLang Studio</p>
+          <button
+            onClick={() => window.location.href = '/iniciar-sesion'}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+          >
+            Ir a Iniciar Sesión
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-linear-to-br from-gray-900 to-gray-800 text-white overflow-hidden">
@@ -1356,6 +1382,36 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
             onAddNewItem={addNewItem}
             onDeleteItem={deleteItem}
           />
+        </div>
+
+        {/* Información del usuario en el sidebar */}
+        <div className="p-4 border-t border-gray-700/80 bg-gray-800/60">
+          <div className="flex items-center space-x-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+              {user?.avatar ? (
+                <Image
+                  src={user.avatar}
+                  alt={user.name}
+                  width={32}
+                  height={32}
+                  className="rounded-full"
+                />
+              ) : (
+                <FiUser className="text-white" size={16} />
+              )}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-white truncate">{user?.name}</p>
+              <p className="text-xs text-gray-400 truncate">{user?.email}</p>
+            </div>
+            <button
+              onClick={logout}
+              className="p-2 hover:bg-red-500/20 rounded-lg transition-colors text-red-400 hover:text-red-300"
+              title="Cerrar sesión"
+            >
+              <FiLogOut size={14} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1497,10 +1553,8 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
             <div className="flex-1 flex items-center justify-center p-4 sm:p-6">
               <div className="relative group text-center w-full max-w-4xl p-6 sm:p-8 lg:p-12 bg-gradient-to-br from-slate-900/95 to-slate-800/90 border border-slate-700/60 rounded-xl backdrop-blur-2xl shadow-2xl transition-all duration-500">
 
-                {/* Efecto de fondo sutil */}
                 <div className="absolute inset-0 rounded-xl opacity-0 group-hover:opacity-100 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-cyan-500/5 blur-xl transition-all duration-700"></div>
 
-                {/* Header inspirado en VS Code - Siempre visible */}
                 <div className="relative mb-6 lg:mb-8">
                   <div className="flex items-center justify-center gap-4 mb-4">
                     <div className="w-3 h-3 bg-red-500 rounded-full"></div>
@@ -1510,14 +1564,12 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                   <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2">
                     LyxLang Studio
                   </h1>
-                  <p className="text-slate-400 text-sm sm:text-base">Edición mejorada</p>
+                  <p className="text-slate-400 text-sm sm:text-base">Bienvenido, {user?.name}</p>
                 </div>
 
-                {/* Grid de contenido - Solo visible en desktop */}
                 <div className="hidden lg:block">
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-left">
 
-                    {/* Columna Inicio */}
                     <div className="space-y-4">
                       <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Inicio</h3>
                       <div className="space-y-3">
@@ -1537,7 +1589,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                       </div>
                     </div>
 
-                    {/* Columna Recientes */}
                     <div className="space-y-4">
                       <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Recientes</h3>
                       <div className="space-y-3">
@@ -1562,7 +1613,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                       </div>
                     </div>
 
-                    {/* Columna Tutoriales */}
                     <div className="space-y-4">
                       <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Tutoriales</h3>
                       <div className="space-y-3">
@@ -1585,7 +1635,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                     </div>
                   </div>
 
-                  {/* Footer con información de estado - Solo visible en desktop */}
                   <div className="mt-8 pt-6 border-t border-slate-700/50">
                     <div className="flex items-center justify-center gap-6 text-slate-500 text-sm">
                       <div className="flex items-center gap-2">
@@ -1604,7 +1653,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                   </div>
                 </div>
 
-                {/* Mensaje para móvil/tablet - Solo visible en móvil y tablet */}
                 <div className="lg:hidden text-center space-y-4 mt-6">
                   <div className="text-slate-300 text-sm">
                     Abre un archivo para comenzar a programar

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque } from "next/font/google";
 import "./globals.css";
+import { AuthProvider } from '@/contexts/AuthContext'
 
-const geistBricolage_Grotesque = Bricolage_Grotesque({
+const bricolageGrotesque = Bricolage_Grotesque({
   variable: "--font-bricolage-grotesque",
   subsets: ["latin"]
 });
@@ -18,11 +19,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="es">
       <body
-        className={`${geistBricolage_Grotesque.variable} antialiased`}
+        className={`${bricolageGrotesque.variable} antialiased`}
       >
-        {children}
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
