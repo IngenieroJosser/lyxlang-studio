@@ -8,7 +8,7 @@ import {
   storeToken,
   removeToken,
 } from '@/services/auth-services';
-import { LoginData, AuthResponse, UserProfile, RegisterData, AuthUser } from '@/lib/type';
+import { LoginData, AuthResponse, UserProfile, RegisterData } from '@/lib/type';
 
 interface UseAuthReturn {
   user: UserProfile | null;
@@ -26,27 +26,31 @@ export function useAuth(): UseAuthReturn {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
 
   const clearError = useCallback(() => setError(null), []);
 
   const checkAuth = useCallback(async () => {
+    // Evitar múltiples verificaciones
+    if (authChecked) return;
+
     setLoading(true);
     try {
       const { valid, user: currentUser } = await validateToken();
+      
       if (valid && currentUser) {
         setUser(currentUser);
       } else {
         setUser(null);
-        removeToken();
       }
     } catch (err: any) {
       setUser(null);
-      removeToken();
-      console.error('Auth check failed:', err);
+      // No establecer error aquí para no mostrar mensajes en la verificación inicial
     } finally {
       setLoading(false);
+      setAuthChecked(true);
     }
-  }, []);
+  }, [authChecked]);
 
   const handleAuth = async (authFunction: () => Promise<AuthResponse>) => {
     setLoading(true);
@@ -54,11 +58,14 @@ export function useAuth(): UseAuthReturn {
     try {
       const response = await authFunction();
       storeToken(response.token);
-      // Get full user profile after auth
+      
+      // Obtener perfil completo después de autenticar
       const fullUser = await getCurrentUser();
       setUser(fullUser);
+      return fullUser;
     } catch (err: any) {
-      setError(err.message || 'Error durante la autenticación');
+      const errorMessage = err.message || 'Error durante la autenticación';
+      setError(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -67,14 +74,15 @@ export function useAuth(): UseAuthReturn {
 
   const login = useCallback(async (data: LoginData): Promise<void> => {
     await handleAuth(() => loginUser(data));
-  }, [clearError]);
+  }, []);
 
   const register = useCallback(async (data: RegisterData): Promise<void> => {
     await handleAuth(() => registerUser(data));
-  }, [clearError]);
+  }, []);
 
   const logout = useCallback(() => {
     setUser(null);
+    setAuthChecked(false);
     removeToken();
     setError(null);
   }, []);
@@ -97,7 +105,7 @@ export function useAuth(): UseAuthReturn {
     user,
     loading,
     error,
-    isAuthenticated: !!user,
+    isAuthenticated: !!user && authChecked,
     login,
     register,
     logout,

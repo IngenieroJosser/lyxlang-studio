@@ -11,14 +11,30 @@ export async function loginUser(data: LoginData): Promise<AuthResponse> {
 }
 
 export async function getCurrentUser(): Promise<UserProfile> {
-  return await apiRequest<UserProfile>('GET', '/users/profile');
+  return await apiRequest<UserProfile>('GET', 'auth/profile');
 }
 
 export async function validateToken(): Promise<{ valid: boolean; user?: UserProfile }> {
   try {
+    const token = getStoredToken();
+    
+    // Si no hay token, no es válido
+    if (!token) {
+      return { valid: false };
+    }
+
     const user = await getCurrentUser();
     return { valid: true, user };
-  } catch (error) {
+  } catch (error: any) {
+    
+    // Limpiar token inválido
+    if (error.message.includes('No autorizado') || 
+        error.message.includes('401') ||
+        error.message.includes('token') ||
+        error.message.includes('jwt')) {
+      removeToken();
+    }
+    
     return { valid: false };
   }
 }
