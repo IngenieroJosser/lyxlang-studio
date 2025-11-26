@@ -15,21 +15,18 @@ const Login = () => {
     email: '',
     password: ''
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const { login, register, isAuthenticated, user } = useAuth();
+  const { login, register, isAuthenticated, user, loading: authLoading, error: authError } = useAuth();
   const router = useRouter();
 
+  // Redirección cuando se autentica
   useEffect(() => {
-    if (!loading) {
-      if (isAuthenticated) {
-        router.push('/editor');
-      } else {
-        router.push('/iniciar-sesion');
-      }
+    if (isAuthenticated && user) {
+      console.log('✅ User authenticated, redirecting to editor...');
+      router.push('/editor');
     }
-  }, [isAuthenticated, loading, router]);
+  }, [isAuthenticated, user, router]);
 
   // Fondo dinámico estilo Home
   useEffect(() => {
@@ -45,14 +42,11 @@ const Login = () => {
       ...formData,
       [e.target.name]: e.target.value
     });
-    // Limpiar error cuando el usuario empiece a escribir
-    if (error) setError('');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
+    setSubmitting(true);
 
     try {
       if (isLogin) {
@@ -70,24 +64,33 @@ const Login = () => {
         });
       }
       
-      // La redirección se maneja en el useEffect de arriba
+      // El useEffect se encargará de la redirección
     } catch (err: any) {
       console.error('Auth error:', err);
-      setError(
-        err.message || 
-        (isLogin ? 'Error al iniciar sesión' : 'Error al crear la cuenta')
-      );
+      // El error ya está manejado en el hook useAuth
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
   const handleSocialLogin = (provider: 'github' | 'google') => {
-    setError(`Login con ${provider} está en desarrollo`);
     // Aquí integrarías OAuth cuando esté listo
+    alert(`Login con ${provider} está en desarrollo`);
   };
 
-  // Si ya está autenticado, mostrar loading
+  // Si está cargando la verificación de autenticación
+  if (authLoading && !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto"></div>
+          <p className="mt-4 text-gray-300">Verificando autenticación...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Si ya está autenticado, mostrar loading de redirección
   if (isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950">
@@ -138,7 +141,6 @@ const Login = () => {
           <button
             onClick={() => {
               setIsLogin(true);
-              setError('');
             }}
             className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
               isLogin
@@ -151,7 +153,6 @@ const Login = () => {
           <button
             onClick={() => {
               setIsLogin(false);
-              setError('');
             }}
             className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
               !isLogin
@@ -164,10 +165,10 @@ const Login = () => {
         </div>
 
         {/* Mensaje de error */}
-        {error && (
+        {authError && (
           <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start space-x-3">
             <FiAlertCircle className="text-red-400 mt-0.5 flex-shrink-0" size={16} />
-            <p className="text-red-300 text-sm flex-1">{error}</p>
+            <p className="text-red-300 text-sm flex-1">{authError}</p>
           </div>
         )}
 
@@ -189,7 +190,7 @@ const Login = () => {
                   placeholder="Tu nombre completo"
                   className="w-full bg-gray-950/60 border border-gray-700 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/30 transition-all"
                   required={!isLogin}
-                  disabled={loading}
+                  disabled={submitting}
                 />
               </div>
             </div>
@@ -210,7 +211,7 @@ const Login = () => {
                 placeholder="tu@email.com"
                 className="w-full bg-gray-950/60 border border-gray-700 rounded-lg pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/30 transition-all"
                 required
-                disabled={loading}
+                disabled={submitting}
               />
             </div>
           </div>
@@ -230,14 +231,14 @@ const Login = () => {
                 placeholder="••••••••"
                 className="w-full bg-gray-950/60 border border-gray-700 rounded-lg pl-10 pr-12 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/30 transition-all"
                 required
-                disabled={loading}
+                disabled={submitting}
                 minLength={6}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition"
-                disabled={loading}
+                disabled={submitting}
               >
                 {showPassword ? <FiEyeOff size={16} /> : <FiEye size={16} />}
               </button>
@@ -251,10 +252,10 @@ const Login = () => {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={submitting}
             className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 shadow-lg hover:shadow-blue-500/30 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:shadow-none"
           >
-            {loading ? (
+            {submitting ? (
               <div className="flex items-center justify-center space-x-2">
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 <span>{isLogin ? 'Iniciando sesión...' : 'Creando cuenta...'}</span>
@@ -279,7 +280,7 @@ const Login = () => {
         <div className="space-y-3">
           <button 
             onClick={() => handleSocialLogin('github')}
-            disabled={loading}
+            disabled={submitting}
             className="w-full bg-gray-900/50 hover:bg-gray-800 border border-gray-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center space-x-3 hover:border-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <FiGithub size={20} />
@@ -288,7 +289,7 @@ const Login = () => {
 
           <button 
             onClick={() => handleSocialLogin('google')}
-            disabled={loading}
+            disabled={submitting}
             className="w-full bg-gray-900/50 hover:bg-gray-800 border border-gray-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center space-x-3 hover:border-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <FaGoogle size={20}/>
@@ -303,10 +304,9 @@ const Login = () => {
             <button
               onClick={() => {
                 setIsLogin(!isLogin);
-                setError('');
               }}
               className="text-blue-400 hover:text-blue-300 font-medium transition-colors"
-              disabled={loading}
+              disabled={submitting}
             >
               {isLogin ? 'Regístrate' : 'Inicia sesión'}
             </button>
@@ -318,17 +318,6 @@ const Login = () => {
           © {new Date().getFullYear()} LyxLang Studio. Todos los derechos reservados.
         </p>
       </div>
-
-      <style jsx>{`
-        @keyframes float {
-          0%, 100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-15px);
-          }
-        }
-      `}</style>
     </div>
   );
 };

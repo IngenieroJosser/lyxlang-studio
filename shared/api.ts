@@ -9,7 +9,7 @@ export const apiRequest = async <T>(
 ): Promise<T> => {
   try {
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:4000";
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3001";
 
     // Asegurarse de que el endpoint comience con /
     let formattedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
@@ -50,27 +50,27 @@ export const apiRequest = async <T>(
       url: fullUrl,
       data: !isFormData && data ? JSON.stringify(data) : data,
       headers,
-      timeout: 30000, // 30 segundos de timeout
-      validateStatus: (status) => status >= 200 && status < 500, // Aceptar respuestas 4xx como no excepciones
+      timeout: 30000,
+      validateStatus: (status) => status >= 200 && status < 500,
       ...config,
+    });
+
+    console.log("📥 API Response:", {
+      status: response.status,
+      data: response.data,
+      url: fullUrl
     });
 
     // Si la respuesta es un error, lanzar excepción
     if (response.status >= 400) {
       const errorData: ApiErrorResponse = {
-        message: response.data?.message || `Error ${response.status}`,
+        message: response.data?.message || `Error ${response.status}: ${response.statusText}`,
         statusCode: response.status,
-        error: response.data?.error,
-        details: response.data
+        error: response.data?.error || response.statusText,
+        details: response.data || {}
       };
 
-      console.error("❌ API Error Response:", {
-        status: response.status,
-        statusText: response.statusText,
-        data: response.data,
-        url: fullUrl,
-        method
-      });
+      console.error("❌ API Error Response:", errorData);
 
       throw errorData;
     }
@@ -81,30 +81,45 @@ export const apiRequest = async <T>(
       name: error.name,
       message: error.message,
       code: error.code,
-      stack: error.stack,
-      config: {
-        url: error.config?.url,
-        method: error.config?.method,
-        data: error.config?.data,
-        headers: error.config?.headers
-      },
-      response: {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data
-      }
+      config: error.config ? {
+        url: error.config.url,
+        method: error.config.method,
+      } : 'No config',
+      response: error.response ? {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data
+      } : 'No response'
     });
 
-    // Manejo de errores HTTP
+    // Si es nuestro error personalizado (ApiErrorResponse)
+    if (error.statusCode) {
+      const status = error.statusCode;
+
+      if (status === 401) {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("token");
+          // No redirigir automáticamente, dejar que el hook maneje esto
+        }
+        throw new Error("No autorizado. Por favor, inicia sesión nuevamente.");
+      } else if (status === 403) {
+        throw new Error("No tienes permisos para realizar esta acción.");
+      } else if (status === 404) {
+        throw new Error("Recurso no encontrado.");
+      } else if (status >= 500) {
+        throw new Error("Error interno del servidor. Por favor, intenta más tarde.");
+      } else {
+        throw new Error(error.message || `Error ${status}`);
+      }
+    }
+
+    // Manejo de errores de Axios
     if (error.response) {
       const status = error.response.status;
 
-      if (status === 400) {
-        throw new Error(error.response.data?.message || "Solicitud incorrecta. Verifica los datos enviados.");
-      } else if (status === 401) {
+      if (status === 401) {
         if (typeof window !== "undefined") {
           localStorage.removeItem("token");
-          window.location.href = "/login";
         }
         throw new Error("No autorizado. Por favor, inicia sesión nuevamente.");
       } else if (status === 403) {
@@ -123,4 +138,3 @@ export const apiRequest = async <T>(
     }
   }
 };
-

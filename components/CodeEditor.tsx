@@ -1313,14 +1313,14 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
   }
 
   return (
-    <div className="flex h-screen bg-linear-to-br from-gray-900 to-gray-800 text-white overflow-hidden">
+    <div className="flex h-screen bg-gradient-to-br from-gray-900 to-gray-800 text-white overflow-hidden">
       {/* Sidebar */}
       <div className={`
         fixed lg:relative z-50 h-full bg-gray-800/95 backdrop-blur-lg border-r border-gray-700/80 flex flex-col shadow-2xl transition-all duration-300
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         w-80 lg:w-72
       `}>
-        <div className="p-4 border-b border-gray-700/80 bg-linear-to-r from-gray-800 to-gray-700/40">
+        <div className="p-4 border-b border-gray-700/80 bg-gradient-to-r from-gray-800 to-gray-700/40">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-3">
               <div className="relative">
@@ -1416,7 +1416,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       </div>
 
       {/* Área principal */}
-      <div className="flex-1 flex flex-col min-w-0 h-full editor-background">
+      <div className="flex-1 flex flex-col min-w-0 h-full">
         {/* Header */}
         <div className="bg-gray-800/80 backdrop-blur-lg border-b border-gray-700/80 px-4 lg:px-6 py-3 shrink-0">
           <div className="flex items-center justify-between">
