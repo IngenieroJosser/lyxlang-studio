@@ -20,12 +20,11 @@ export interface Project_ {
   };
 }
 
-export interface CreateProjectData {
+export interface CreateProjectDto {
   name: string;
   description?: string;
-  visibility?: 'PRIVATE' | 'PUBLIC' | 'ORGANIZATION';
-  isTemplate?: boolean;
   typescriptConfig?: any;
+  visibility?: 'PRIVATE' | 'PUBLIC' | 'ORGANIZATION'; // ← Agregar este campo
 }
 
-export interface UpdateProjectData extends Partial<CreateProjectData> {}
+export interface UpdateProjectData extends Partial<CreateProjectDto> {}

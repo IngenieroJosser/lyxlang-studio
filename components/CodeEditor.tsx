@@ -1,3 +1,4 @@
+// components/AdvancedCodeEditor.tsx
 'use client';
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import dynamic from 'next/dynamic';
@@ -11,7 +12,6 @@ import {
   FiSave,
   FiEdit2,
   FiSearch,
-  FiSettings,
   FiPlay,
   FiTerminal,
   FiFolderPlus,
@@ -30,15 +30,31 @@ import {
   FiInfo,
   FiDownload,
   FiUpload,
-  FiRefreshCw,
   FiPackage,
   FiServer,
   FiCpu,
   FiHardDrive,
-  FiLogOut
+  FiLogOut,
+  FiFolderMinus
 } from 'react-icons/fi';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
+
+// Servicios del backend
+import {
+  getProjectStructure,
+  createFile,
+  updateFile,
+  deleteFile,
+  createFolder,
+  deleteFolder,
+  getFileContent,
+} from '@/services/file-services';
+import {
+  getProjects,
+  createProject,
+} from '@/services/project-services';
+import { compileCode } from '@/services/compiler-services';
 
 // Carga diferida de Monaco Editor
 const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
@@ -48,47 +64,33 @@ const MonacoEditor = dynamic(() => import('@monaco-editor/react'), {
       <div className="relative mb-8">
         <div className="absolute inset-0 rounded-3xl blur-xl bg-blue-500/20 animate-pulse" />
         <div className="relative w-20 h-20 bg-gradient-to-br rounded-3xl flex items-center justify-center shadow-2xl ring-2 ring-white/10">
-          <div className="text-white font-bold text-xl tracking-wider">
-            <Image 
-              src='/lyxlang-lyxlang-studio-with-text-removebg-preview.png'
-              alt='Logo de LyxLang Studio'
-              width={50}
-              height={50}
-              className='rounded-4xl object-cover'
-            />
-          </div>
+          <Image 
+            src='/lyxlang-lyxlang-studio-with-text-removebg-preview.png'
+            alt='Logo de LyxLang Studio'
+            width={50}
+            height={50}
+            className='rounded-4xl object-cover'
+          />
         </div>
       </div>
-
       <div className="relative mb-6">
         <div className="w-16 h-16 border-4 border-blue-400/20 rounded-full" />
         <div className="absolute top-0 left-0 w-16 h-16 border-4 border-t-blue-400 border-r-blue-400/30 border-b-blue-400/30 border-l-blue-400/30 rounded-full animate-spin" />
       </div>
-
       <div className="text-center space-y-3">
         <h3 className="text-xl font-semibold text-white bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
           LyxLang Studio
         </h3>
         <p className="text-gray-400 text-sm">Cargando entorno de desarrollo...</p>
-        
         <div className="w-64 h-1.5 bg-gray-700 rounded-full overflow-hidden mt-4">
           <div className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-blue-500 rounded-full animate-shimmer" />
         </div>
       </div>
-
-      <style jsx>{`
-        @keyframes shimmer {
-          0% { transform: translateX(-100%); }
-          100% { transform: translateX(100%); }
-        }
-        .animate-shimmer {
-          animation: shimmer 2s infinite;
-        }
-      `}</style>
     </div>
   ),
 });
 
+// Interfaces
 interface FileNode {
   id: string;
   name: string;
@@ -97,6 +99,24 @@ interface FileNode {
   children?: FileNode[];
   isOpen?: boolean;
   path?: string;
+  fullPath?: string;
+  language?: string;
+  projectId?: string;
+  folderId?: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  ownerId: string;
+  organizationId?: string;
+  slug: string;
+  typescriptConfig?: any;
+  rootFolderId?: string;
+  visibility: 'PRIVATE' | 'PUBLIC' | 'ORGANIZATION';
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface Tab {
@@ -121,32 +141,29 @@ const MemoizedChevron = React.memo(({ isOpen }: { isOpen: boolean }) => (
 class TypeScriptCompiler {
   private ts: any = null;
   private initialized = false;
-  private initializationPromise: Promise<void> | null = null;
 
   async initialize() {
     if (this.initialized) return;
-    if (this.initializationPromise) return this.initializationPromise;
-
-    this.initializationPromise = this.loadTypeScript();
-    await this.initializationPromise;
-  }
-
-  private async loadTypeScript(): Promise<void> {
-    if (typeof window === 'undefined') return;
 
     try {
-      if (!(window as any).ts) {
-        return this.initializeWithScript();
+      if (typeof window !== 'undefined' && (window as any).ts) {
+        this.ts = (window as any).ts;
+        this.initialized = true;
+        return;
       }
-      this.ts = (window as any).ts;
-      this.initialized = true;
+      await this.loadTypeScriptFromCDN();
     } catch (error) {
       console.error('Error initializing TypeScript compiler:', error);
     }
   }
 
-  private initializeWithScript(): Promise<void> {
+  private loadTypeScriptFromCDN(): Promise<void> {
     return new Promise((resolve, reject) => {
+      if (this.ts) {
+        resolve();
+        return;
+      }
+
       const script = document.createElement('script');
       script.src = 'https://unpkg.com/typescript@latest/lib/typescript.js';
       script.async = true;
@@ -157,7 +174,10 @@ class TypeScriptCompiler {
         resolve();
       };
 
-      script.onerror = reject;
+      script.onerror = () => {
+        reject(new Error('Failed to load TypeScript compiler'));
+      };
+
       document.head.appendChild(script);
     });
   }
@@ -226,18 +246,42 @@ class CommandExecutor {
     });
   }
 
-  private findFile(path: string): FileNode | null {
-    const search = (nodes: FileNode[], currentPath: string): FileNode | null => {
-      for (const node of nodes) {
-        if (node.path === currentPath) return node;
-        if (node.children) {
-          const found = search(node.children, currentPath);
-          if (found) return found;
+  async executeCommand(fullCommand: string): Promise<string> {
+    const trimmedCommand = fullCommand.trim();
+    if (!trimmedCommand) return '';
+
+    const args = trimmedCommand.split(' ').filter(arg => arg.length > 0);
+    const command = args[0].toLowerCase();
+
+    this.addOutput(`$ ${trimmedCommand}`, <FiTerminal className="text-green-400 inline mr-1" size={12} />);
+
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    try {
+      let result: { output: string; icon: React.ReactNode } = { output: '', icon: null };
+
+      if (command === 'npm') {
+        result = this.executeNpmCommand(args.slice(1));
+      } else if (command === 'git') {
+        result = this.executeGitCommand(args.slice(1));
+      } else {
+        result = this.executeSystemCommand(args);
+      }
+
+      if (result.output) {
+        const lines = result.output.split('\n');
+        for (let i = 0; i < lines.length; i++) {
+          this.addOutput(lines[i], result.icon);
+          if (i % 5 === 0) await new Promise(resolve => setTimeout(resolve, 0));
         }
       }
-      return null;
-    };
-    return search(this.fileSystem, path);
+
+      return result.output;
+    } catch (error: any) {
+      const errorMessage = `Error ejecutando comando: ${error.message}`;
+      this.addOutput(errorMessage, <FiAlertCircle className="text-red-400 inline mr-1" size={12} />);
+      return errorMessage;
+    }
   }
 
   private executeNpmCommand(args: string[]): { output: string; icon: React.ReactNode } {
@@ -266,31 +310,10 @@ class CommandExecutor {
         break;
       case 'run':
         const script = args[1];
-        switch (script) {
-          case 'dev':
-            result = {
-              output: 'Ejecutando script dev...\n Servidor de desarrollo iniciado',
-              icon: <FiPlay className="text-green-400 inline mr-1" size={12} />
-            };
-            break;
-          case 'build':
-            result = {
-              output: 'Ejecutando build...\n Build completado exitosamente',
-              icon: <FiCpu className="text-yellow-400 inline mr-1" size={12} />
-            };
-            break;
-          case 'test':
-            result = {
-              output: 'Ejecutando tests...\n Todos los tests pasaron',
-              icon: <FiCheck className="text-green-400 inline mr-1" size={12} />
-            };
-            break;
-          default:
-            result = {
-              output: `Ejecutando script: ${script}\n Script ejecutado correctamente`,
-              icon: <FiPlay className="text-blue-400 inline mr-1" size={12} />
-            };
-        }
+        result = {
+          output: `Ejecutando script: ${script}\n Script ejecutado correctamente`,
+          icon: <FiPlay className="text-blue-400 inline mr-1" size={12} />
+        };
         break;
       default:
         result = {
@@ -340,36 +363,6 @@ class CommandExecutor {
           icon: <FiCheck className="text-green-400 inline mr-1" size={12} />
         };
         break;
-      case 'push':
-        result = {
-          output: 'Enviendo cambios al repositorio remoto...\n Cambios enviados correctamente',
-          icon: <FiUpload className="text-blue-400 inline mr-1" size={12} />
-        };
-        break;
-      case 'pull':
-        result = {
-          output: 'Obteniendo cambios del repositorio remoto...\n Cambios obtenidos correctamente',
-          icon: <FiDownload className="text-blue-400 inline mr-1" size={12} />
-        };
-        break;
-      case 'branch':
-        result = {
-          output: 'Ramas disponibles:\n* main\n  development\n  feature/nueva-funcionalidad',
-          icon: <FiGitBranch className="text-purple-400 inline mr-1" size={12} />
-        };
-        break;
-      case 'checkout':
-        result = {
-          output: `Cambiando a rama: ${args[1]}\n Cambio de rama exitoso`,
-          icon: <FiGitBranch className="text-yellow-400 inline mr-1" size={12} />
-        };
-        break;
-      case 'clone':
-        result = {
-          output: `Clonando repositorio: ${args[1]}\n Repositorio clonado correctamente`,
-          icon: <FiDownload className="text-green-400 inline mr-1" size={12} />
-        };
-        break;
       default:
         result = {
           output: `Comando git '${command}' no reconocido`,
@@ -412,20 +405,6 @@ class CommandExecutor {
       case 'clear':
         this.setTerminalOutput([]);
         return { output: '', icon: null };
-      case 'cat':
-        if (args[1]) {
-          const file = this.findFile(args[1]);
-          result = {
-            output: file?.content || `Archivo no encontrado: ${args[1]}`,
-            icon: <FiFile className="text-blue-400 inline mr-1" size={12} />
-          };
-        } else {
-          result = {
-            output: 'Especifica un archivo para mostrar',
-            icon: <FiAlertCircle className="text-yellow-400 inline mr-1" size={12} />
-          };
-        }
-        break;
       case 'mkdir':
         result = {
           output: `Creando directorio: ${args[1]}\n Directorio creado correctamente`,
@@ -438,12 +417,6 @@ class CommandExecutor {
           icon: <FiFilePlus className="text-green-400 inline mr-1" size={12} />
         };
         break;
-      case 'rm':
-        result = {
-          output: `Eliminando: ${args[1]}\n Eliminado correctamente`,
-          icon: <FiTrash2 className="text-red-400 inline mr-1" size={12} />
-        };
-        break;
       default:
         result = {
           output: `Comando '${command}' no encontrado`,
@@ -453,44 +426,6 @@ class CommandExecutor {
 
     this.commandCache.set(cacheKey, result);
     return result;
-  }
-
-  async executeCommand(fullCommand: string): Promise<string> {
-    const trimmedCommand = fullCommand.trim();
-    if (!trimmedCommand) return '';
-
-    const args = trimmedCommand.split(' ').filter(arg => arg.length > 0);
-    const command = args[0].toLowerCase();
-
-    this.addOutput(`$ ${trimmedCommand}`, <FiTerminal className="text-green-400 inline mr-1" size={12} />);
-
-    await new Promise(resolve => setTimeout(resolve, 50));
-
-    try {
-      let result: { output: string; icon: React.ReactNode } = { output: '', icon: null };
-
-      if (command === 'npm') {
-        result = this.executeNpmCommand(args.slice(1));
-      } else if (command === 'git') {
-        result = this.executeGitCommand(args.slice(1));
-      } else {
-        result = this.executeSystemCommand(args);
-      }
-
-      if (result.output) {
-        const lines = result.output.split('\n');
-        for (let i = 0; i < lines.length; i++) {
-          this.addOutput(lines[i], result.icon);
-          if (i % 5 === 0) await new Promise(resolve => setTimeout(resolve, 0));
-        }
-      }
-
-      return result.output;
-    } catch (error: any) {
-      const errorMessage = `Error ejecutando comando: ${error.message}`;
-      this.addOutput(errorMessage, <FiAlertCircle className="text-red-400 inline mr-1" size={12} />);
-      return errorMessage;
-    }
   }
 }
 
@@ -553,7 +488,6 @@ const VirtualizedFileTree = React.memo(({
   selectedFile,
   onFileSelect,
   onToggleFolder,
-  onStartRename,
   onAddNewItem,
   onDeleteItem,
   level = 0
@@ -562,7 +496,6 @@ const VirtualizedFileTree = React.memo(({
   selectedFile: FileNode | null;
   onFileSelect: (file: FileNode) => void;
   onToggleFolder: (id: string) => void;
-  onStartRename: (node: FileNode) => void;
   onAddNewItem: (parentId?: string, type?: 'file' | 'folder') => void;
   onDeleteItem: (id: string) => void;
   level?: number;
@@ -576,7 +509,6 @@ const VirtualizedFileTree = React.memo(({
           selectedFile={selectedFile}
           onFileSelect={onFileSelect}
           onToggleFolder={onToggleFolder}
-          onStartRename={onStartRename}
           onAddNewItem={onAddNewItem}
           onDeleteItem={onDeleteItem}
           level={level}
@@ -591,7 +523,6 @@ const FileTreeNode = React.memo(({
   selectedFile,
   onFileSelect,
   onToggleFolder,
-  onStartRename,
   onAddNewItem,
   onDeleteItem,
   level = 0
@@ -600,30 +531,16 @@ const FileTreeNode = React.memo(({
   selectedFile: FileNode | null;
   onFileSelect: (file: FileNode) => void;
   onToggleFolder: (id: string) => void;
-  onStartRename: (node: FileNode) => void;
   onAddNewItem: (parentId?: string, type?: 'file' | 'folder') => void;
   onDeleteItem: (id: string) => void;
   level?: number;
 }) => {
-  const [isRenaming, setIsRenaming] = useState(false);
-  const [renameValue, setRenameValue] = useState('');
-
-  const handleRename = useCallback(() => {
-    onStartRename(node);
-    setIsRenaming(true);
-    setRenameValue(node.name);
-  }, [node, onStartRename]);
-
-  const handleSaveRename = useCallback(() => {
-    setIsRenaming(false);
-  }, []);
-
   return (
     <div className="select-none group">
       <div
         className={`flex items-center px-3 py-2 hover:bg-blue-500/10 cursor-pointer transition-all duration-200 rounded-lg mx-2 border-l-2 ${selectedFile?.id === node.id
-            ? 'bg-blue-500/20 border-blue-400'
-            : 'border-transparent hover:border-blue-400/30'
+          ? 'bg-blue-500/20 border-blue-400'
+          : 'border-transparent hover:border-blue-400/30'
           }`}
         style={{ paddingLeft: `${level * 16 + 12}px` }}
       >
@@ -644,19 +561,11 @@ const FileTreeNode = React.memo(({
         <span
           className="flex-1 text-sm text-gray-200 hover:text-white transition-colors truncate"
           onClick={() => onFileSelect(node)}
-          onDoubleClick={handleRename}
         >
           {node.name}
         </span>
 
         <div className="ml-auto flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-          <button
-            onClick={handleRename}
-            className="p-1 hover:bg-gray-600/50 rounded transition-colors"
-            title="Renombrar"
-          >
-            <FiEdit2 size={12} className="text-gray-400" />
-          </button>
           <button
             onClick={() => onAddNewItem(node.id, 'file')}
             className="p-1 hover:bg-gray-600/50 rounded transition-colors"
@@ -689,7 +598,6 @@ const FileTreeNode = React.memo(({
             selectedFile={selectedFile}
             onFileSelect={onFileSelect}
             onToggleFolder={onToggleFolder}
-            onStartRename={onStartRename}
             onAddNewItem={onAddNewItem}
             onDeleteItem={onDeleteItem}
             level={level + 1}
@@ -725,106 +633,11 @@ const AdvancedCodeEditor = () => {
   const { user, logout, isAuthenticated, loading: authLoading } = useAuth();
 
   // Estados principales
-  const [files, setFiles] = useOptimizedState<FileNode[]>([
-    {
-      id: '1',
-      name: 'proyecto',
-      type: 'folder',
-      isOpen: true,
-      path: '/proyecto',
-      children: [
-        {
-          id: '2',
-          name: 'src',
-          type: 'folder',
-          isOpen: true,
-          path: '/proyecto/src',
-          children: [
-            {
-              id: '3',
-              name: 'main.ts',
-              type: 'file',
-              content: `// Aplicación principal TypeScript
-interface User {
-  name: string;
-  age: number;
-}
-
-class Greeter {
-  constructor(private user: User) {}
-
-  greet(): string {
-    return \`Hello, \${this.user.name}! You are \${this.user.age} years old.\`;
-  }
-}
-
-const user: User = { name: "John", age: 25 };
-const greeter = new Greeter(user);
-console.log(greeter.greet());
-
-// Función con tipos genéricos
-function identity<T>(arg: T): T {
-  return arg;
-}
-
-const result = identity<string>("TypeScript is awesome!");
-console.log(result);`
-            },
-            {
-              id: '4',
-              name: 'utils.ts',
-              type: 'file',
-              content: `// Utilidades TypeScript
-export const add = (a: number, b: number): number => a + b;
-
-export const formatDate = (date: Date): string => {
-  return date.toLocaleDateString('es-ES');
-};
-
-export interface ApiResponse<T> {
-  data: T;
-  status: number;
-  message: string;
-}
-
-export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
-  const response = await fetch(url);
-  const data = await response.json();
-  
-  return {
-    data,
-    status: response.status,
-    message: 'Success'
-  };
-}`
-            }
-          ]
-        },
-        {
-          id: '5',
-          name: 'package.json',
-          type: 'file',
-          content: `{
-  "name": "mi-proyecto-typescript",
-  "version": "1.0.0",
-  "description": "Un proyecto TypeScript con características modernas",
-  "main": "dist/main.js",
-  "scripts": {
-    "build": "tsc",
-    "dev": "ts-node src/main.ts",
-    "test": "jest"
-  },
-  "dependencies": {
-    "typescript": "^5.0.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20.0.0"
-  }
-}`
-        }
-      ]
-    }
-  ]);
+  const [files, setFiles] = useOptimizedState<FileNode[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Estados de pestañas y archivos
   const [tabs, setTabs] = useState<Tab[]>([]);
@@ -838,8 +651,6 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
   const [terminalInput, setTerminalInput] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [isTablet, setIsTablet] = useState(false);
-  const [terminalHeight, setTerminalHeight] = useState(300);
 
   // Estados de ejecución
   const [isRunning, setIsRunning] = useState(false);
@@ -851,9 +662,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
   const compiler = useMemo(() => new TypeScriptCompiler(), []);
   const commandExecutor = useMemo(() => new CommandExecutor(files, setFiles, setTerminalOutput), [files, setFiles]);
 
-  const terminalRef = useRef<HTMLDivElement>(null);
   const terminalInputRef = useRef<HTMLInputElement>(null);
-  const tabsContainerRef = useRef<HTMLDivElement>(null);
 
   // Obtener archivo activo actual
   const activeFile = useMemo(() => {
@@ -868,12 +677,9 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
 
   // Efectos de responsive
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-
     const checkScreenSize = () => {
       const width = window.innerWidth;
       setIsMobile(width < 768);
-      setIsTablet(width >= 768 && width < 1024);
 
       if (width >= 768) {
         setSidebarOpen(true);
@@ -882,22 +688,181 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       }
     };
 
-    const handleResize = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(checkScreenSize, 100);
-    };
-
     checkScreenSize();
-    window.addEventListener('resize', handleResize, { passive: true });
+    window.addEventListener('resize', checkScreenSize, { passive: true });
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      clearTimeout(timeoutId);
+      window.removeEventListener('resize', checkScreenSize);
     };
   }, []);
 
+  // Cargar proyectos al iniciar
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadProjects();
+    }
+  }, [isAuthenticated]);
+
+  // Cargar estructura de archivos cuando se selecciona un proyecto
+  useEffect(() => {
+    if (currentProject) {
+      loadProjectStructure(currentProject.id);
+    }
+  }, [currentProject]);
+
+  // Funciones para interactuar con el backend
+  const loadProjects = async () => {
+    try {
+      setLoading(true);
+      const projectsData = await getProjects();
+      setProjects(projectsData);
+    } catch (err: any) {
+      setError(err.message || 'Error al cargar proyectos');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadProjectStructure = async (projectId: string) => {
+    try {
+      setLoading(true);
+      const structure = await getProjectStructure(projectId);
+      setFiles(structure);
+    } catch (err: any) {
+      setError(err.message || 'Error al cargar la estructura del proyecto');
+      // Usar estructura por defecto
+      setFiles(getDefaultFileStructure());
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createNewProject = async () => {
+    try {
+      setLoading(true);
+      const newProject = await createProject({
+        name: 'Nuevo Proyecto',
+        description: 'Proyecto creado desde LyxLang Studio',
+        visibility: 'PRIVATE'
+      });
+      setCurrentProject(newProject);
+      setProjects(prev => [newProject, ...prev]);
+    } catch (err: any) {
+      setError(err.message || 'Error al crear proyecto');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadFileContent = async (fileId: string): Promise<string> => {
+    try {
+      const fileContent = await getFileContent(fileId);
+      return fileContent.content || '';
+    } catch (err: any) {
+      setError(err.message || 'Error al cargar el archivo');
+      return '';
+    }
+  };
+
+  const saveFileToBackend = async (fileId: string, content: string) => {
+    try {
+      await updateFile(fileId, { content });
+    } catch (err: any) {
+      setError(err.message || 'Error al guardar el archivo');
+      throw err;
+    }
+  };
+
+  const createNewFile = async (projectId: string, parentId?: string, name: string = 'nuevo_archivo.ts') => {
+    try {
+      const newFile = await createFile({
+        projectId,
+        name,
+        path: '/',
+        folderId: parentId,
+        content: '// Escribe tu código aquí\nconsole.log("¡Hola Mundo!");',
+        language: 'typescript'
+      });
+      return newFile;
+    } catch (err: any) {
+      setError(err.message || 'Error al crear archivo');
+      throw err;
+    }
+  };
+
+  const createNewFolder = async (projectId: string, parentId?: string, name: string = 'nueva_carpeta') => {
+    try {
+      const newFolder = await createFolder({
+        projectId,
+        name,
+        path: '/',
+        parentId
+      });
+      return newFolder;
+    } catch (err: any) {
+      setError(err.message || 'Error al crear carpeta');
+      throw err;
+    }
+  };
+
+  const deleteFileFromBackend = async (fileId: string) => {
+    try {
+      await deleteFile(fileId);
+    } catch (err: any) {
+      setError(err.message || 'Error al eliminar archivo');
+      throw err;
+    }
+  };
+
+  const deleteFolderFromBackend = async (folderId: string) => {
+    try {
+      await deleteFolder(folderId);
+    } catch (err: any) {
+      setError(err.message || 'Error al eliminar carpeta');
+      throw err;
+    }
+  };
+
+  // Función para estructura por defecto
+  const getDefaultFileStructure = (): FileNode[] => {
+    return [
+      {
+        id: 'root',
+        name: 'proyecto',
+        type: 'folder',
+        isOpen: true,
+        path: '/',
+        children: [
+          {
+            id: 'src',
+            name: 'src',
+            type: 'folder',
+            isOpen: true,
+            path: '/src',
+            children: [
+              {
+                id: 'main-ts',
+                name: 'main.ts',
+                type: 'file',
+                path: '/src/main.ts',
+                content: `// Archivo principal TypeScript\nconsole.log("¡Bienvenido a LyxLang Studio!");\n\n// Tu código TypeScript aquí\nclass HolaMundo {\n  constructor(private mensaje: string) {}\n  \n  saludar(): string {\n    return this.mensaje;\n  }\n}\n\nconst saludo = new HolaMundo("¡Hola desde TypeScript!");\nconsole.log(saludo.saludar());`
+              }
+            ]
+          },
+          {
+            id: 'package-json',
+            name: 'package.json',
+            type: 'file',
+            path: '/package.json',
+            content: `{\n  "name": "mi-proyecto",\n  "version": "1.0.0",\n  "description": "Proyecto TypeScript en LyxLang Studio",\n  "main": "dist/main.js",\n  "scripts": {\n    "build": "tsc",\n    "dev": "ts-node src/main.ts"\n  },\n  "dependencies": {},\n  "devDependencies": {\n    "typescript": "^5.0.0"\n  }\n}`
+          }
+        ]
+      }
+    ];
+  };
+
   // Callbacks para gestión de pestañas
-  const openFileInTab = useCallback((file: FileNode) => {
+  const openFileInTab = useCallback(async (file: FileNode) => {
     if (file.type !== 'file') return;
 
     setTabs(prevTabs => {
@@ -926,7 +891,33 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
 
       return updatedTabs;
     });
-  }, []);
+
+    // Si el archivo no tiene contenido, cargarlo desde el backend
+    if (!file.content && file.id) {
+      try {
+        const content = await loadFileContent(file.id);
+        setCode(content);
+        
+        // Actualizar el archivo en el estado local
+        setFiles(prevFiles => {
+          const updateFileContent = (nodes: FileNode[]): FileNode[] => {
+            return nodes.map(node => {
+              if (node.id === file.id) {
+                return { ...node, content };
+              }
+              if (node.children) {
+                return { ...node, children: updateFileContent(node.children) };
+              }
+              return node;
+            });
+          };
+          return updateFileContent(prevFiles);
+        });
+      } catch (err) {
+        console.error('Error loading file content:', err);
+      }
+    }
+  }, [setFiles]);
 
   const closeTab = useCallback((tabId: string) => {
     setTabs(prevTabs => {
@@ -1005,56 +996,92 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
     }
   }, [isMobile, openFileInTab, toggleFolder]);
 
-  const addNewItem = useCallback((parentId?: string, type: 'file' | 'folder' = 'file') => {
-    const newItem: FileNode = {
-      id: Date.now().toString(),
-      name: type === 'file' ? 'nuevo_archivo.ts' : 'nueva_carpeta',
-      type,
-      content: type === 'file' ? '// Escribe tu código aquí\nconsole.log("¡Hola Mundo!");' : '',
-      children: type === 'folder' ? [] : undefined,
-      isOpen: true
-    };
-
-    setFiles(prevFiles => {
-      const addNode = (nodes: FileNode[]): FileNode[] => {
-        return nodes.map(node => {
-          if (node.id === parentId || (!parentId && node.type === 'folder')) {
-            const newChildren = [...(node.children || []), newItem];
-            return {
-              ...node,
-              children: newChildren,
-              isOpen: true
-            };
-          }
-          if (node.children) {
-            return { ...node, children: addNode(node.children) };
-          }
-          return node;
-        });
-      };
-      return addNode(prevFiles);
-    });
-  }, [setFiles]);
-
-  const deleteItem = useCallback((id: string) => {
-    setFiles(prevFiles => {
-      const removeNode = (nodes: FileNode[]): FileNode[] => {
-        return nodes.filter(node => {
-          if (node.id === id) return false;
-          if (node.children) {
-            node.children = removeNode(node.children);
-          }
-          return true;
-        });
-      };
-      return removeNode(prevFiles);
-    });
-
-    const tabToClose = tabs.find(tab => tab.file.id === id);
-    if (tabToClose) {
-      closeTab(tabToClose.id);
+  const addNewItem = useCallback(async (parentId?: string, type: 'file' | 'folder' = 'file') => {
+    if (!currentProject) {
+      setError('Selecciona un proyecto primero');
+      return;
     }
-  }, [tabs, closeTab, setFiles]);
+
+    try {
+      let newItem: FileNode;
+
+      if (type === 'file') {
+        newItem = await createNewFile(currentProject.id, parentId);
+      } else {
+        newItem = await createNewFolder(currentProject.id, parentId);
+      }
+
+      // Actualizar estado local
+      setFiles(prevFiles => {
+        const addNode = (nodes: FileNode[]): FileNode[] => {
+          return nodes.map(node => {
+            if (node.id === parentId || (!parentId && node.type === 'folder')) {
+              const newChildren = [...(node.children || []), newItem];
+              return {
+                ...node,
+                children: newChildren,
+                isOpen: true
+              };
+            }
+            if (node.children) {
+              return { ...node, children: addNode(node.children) };
+            }
+            return node;
+          });
+        };
+        return addNode(prevFiles);
+      });
+    } catch (err) {
+      // Error ya manejado en la función
+    }
+  }, [currentProject, setFiles]);
+
+  const deleteItem = useCallback(async (id: string) => {
+    const itemToDelete = findItemById(files, id);
+    if (!itemToDelete) return;
+
+    try {
+      if (itemToDelete.type === 'file') {
+        await deleteFileFromBackend(id);
+      } else {
+        await deleteFolderFromBackend(id);
+      }
+
+      // Actualizar estado local
+      setFiles(prevFiles => {
+        const removeNode = (nodes: FileNode[]): FileNode[] => {
+          return nodes.filter(node => {
+            if (node.id === id) return false;
+            if (node.children) {
+              node.children = removeNode(node.children);
+            }
+            return true;
+          });
+        };
+        return removeNode(prevFiles);
+      });
+
+      // Cerrar pestaña si está abierta
+      const tabToClose = tabs.find(tab => tab.file.id === id);
+      if (tabToClose) {
+        closeTab(tabToClose.id);
+      }
+    } catch (err) {
+      // Error ya manejado en la función
+    }
+  }, [files, tabs, closeTab, setFiles]);
+
+  // Función auxiliar para buscar item por ID
+  const findItemById = (nodes: FileNode[], id: string): FileNode | null => {
+    for (const node of nodes) {
+      if (node.id === id) return node;
+      if (node.children) {
+        const found = findItemById(node.children, id);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
 
   // Callbacks para terminal
   const executeTerminalCommand = useCallback(async (command: string) => {
@@ -1135,19 +1162,25 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
   }, []);
 
   const runCode = useCallback(async () => {
-    if (!activeFile) return;
+    if (!activeFile || !currentProject) return;
     setShowRunPanel(true);
     setIsRunning(true);
     clearRun();
 
     try {
-      const result = compiler.compile(code);
-      if (!result.success || !result.output) {
+      // Usar compilación del backend
+      const result = await compileCode(currentProject.id, {
+        code,
+        filePath: activeFile.path || activeFile.name
+      });
+
+      if (!result.success) {
         setIsRunning(false);
         appendRunLog('error', result.error || 'Error de compilación desconocido');
         return;
       }
 
+      // Ejecutar el código compilado en un worker
       const workerSource = `
         const send = (level, args) => {
           try { postMessage({ type: 'log', level, message: args.map(a => {
@@ -1211,42 +1244,49 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       setIsRunning(false);
       appendRunLog('error', err?.message || 'Fallo al ejecutar');
     }
-  }, [appendRunLog, clearRun, code, compiler, activeFile]);
+  }, [appendRunLog, clearRun, code, activeFile, currentProject]);
 
-  const saveFile = useCallback(() => {
-    if (!activeTab) return;
+  const saveFile = useCallback(async () => {
+    if (!activeTab || !currentProject) return;
 
-    setFiles(prevFiles => {
-      const updateFileContent = (nodes: FileNode[]): FileNode[] => {
-        return nodes.map(node => {
-          if (node.id === activeTab.file.id) {
-            return { ...node, content: code };
-          }
-          if (node.children) {
-            return { ...node, children: updateFileContent(node.children) };
-          }
-          return node;
-        });
-      };
-      return updateFileContent(prevFiles);
-    });
+    try {
+      await saveFileToBackend(activeTab.file.id, code);
 
-    setTabs(prevTabs =>
-      prevTabs.map(tab =>
-        tab.id === activeTab.id
-          ? {
-            ...tab,
-            file: { ...tab.file, content: code },
-            isDirty: false
-          }
-          : tab
-      )
-    );
+      // Actualizar estado local
+      setFiles(prevFiles => {
+        const updateFileContent = (nodes: FileNode[]): FileNode[] => {
+          return nodes.map(node => {
+            if (node.id === activeTab.file.id) {
+              return { ...node, content: code };
+            }
+            if (node.children) {
+              return { ...node, children: updateFileContent(node.children) };
+            }
+            return node;
+          });
+        };
+        return updateFileContent(prevFiles);
+      });
 
-    if (activeFile) {
-      setCurrentPath(activeFile.path || '');
+      setTabs(prevTabs =>
+        prevTabs.map(tab =>
+          tab.id === activeTab.id
+            ? {
+              ...tab,
+              file: { ...tab.file, content: code },
+              isDirty: false
+            }
+            : tab
+        )
+      );
+
+      if (activeFile) {
+        setCurrentPath(activeFile.path || '');
+      }
+    } catch (err) {
+      // Error ya manejado en saveFileToBackend
     }
-  }, [activeTab, activeFile, code, setFiles]);
+  }, [activeTab, activeFile, code, currentProject, setFiles]);
 
   // Inicializar compilador
   useEffect(() => {
@@ -1291,7 +1331,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
       <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-900 to-gray-800">
         <div className="text-center p-8 bg-gray-800/80 rounded-2xl border border-gray-700/80 backdrop-blur-lg">
           <div className="mb-6">
-            <Image 
+            <Image
               src="/lyxlang-lyxlang-studio-with-text-removebg-preview.png"
               alt="LyxLang Studio"
               width={120}
@@ -1307,6 +1347,81 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
           >
             Ir a Iniciar Sesión
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Si no hay proyecto seleccionado, mostrar selector de proyectos
+  if (!currentProject) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 to-gray-800 p-4">
+        <div className="w-full max-w-4xl">
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <Image
+                src="/lyxlang-lyxlang-studio-with-text-removebg-preview.png"
+                alt="LyxLang Studio"
+                width={160}
+                height={50}
+                className="mx-auto"
+              />
+            </div>
+            <h1 className="text-3xl font-bold text-white mb-2">LyxLang Studio</h1>
+            <p className="text-gray-400">Selecciona un proyecto para comenzar</p>
+          </div>
+
+          {error && (
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center space-x-3">
+              <FiAlertCircle className="text-red-400 flex-shrink-0" size={20} />
+              <p className="text-red-300 flex-1">{error}</p>
+              <button onClick={() => setError(null)}>
+                <FiX className="text-red-400 hover:text-red-300" size={16} />
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+            {projects.map(project => (
+              <div
+                key={project.id}
+                className="p-6 bg-gray-800/50 rounded-xl border border-gray-700/50 hover:border-blue-500/50 transition-all duration-300 cursor-pointer group hover:bg-gray-800/70"
+                onClick={() => setCurrentProject(project)}
+              >
+                <div className="flex items-center gap-3 mb-3">
+                  <FiFolderMinus className="text-blue-400 group-hover:text-blue-300" size={24} />
+                  <h3 className="text-white font-semibold truncate">{project.name}</h3>
+                </div>
+                <p className="text-gray-400 text-sm mb-2 line-clamp-2">
+                  {project.description || 'Sin descripción'}
+                </p>
+                <div className="flex items-center justify-between text-xs text-gray-500">
+                  <span>Creado: {new Date(project.createdAt).toLocaleDateString()}</span>
+                  <span>{project.slug}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <button
+              onClick={createNewProject}
+              disabled={loading}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white px-8 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 mx-auto"
+            >
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Creando proyecto...
+                </>
+              ) : (
+                <>
+                  <FiPlus size={20} />
+                  Nuevo Proyecto
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -1337,7 +1452,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
               <div>
                 <h2 className="text-sm font-semibold text-white tracking-wide">EXPLORADOR</h2>
                 <div className="flex items-center gap-2">
-                  <p className="text-xs text-gray-400">Proyecto Activo</p>
+                  <p className="text-xs text-gray-400 truncate max-w-[120px]">{currentProject.name}</p>
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-400/20">BETA</span>
                 </div>
               </div>
@@ -1373,15 +1488,20 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
         </div>
 
         <div className="flex-1 overflow-y-auto py-3">
-          <VirtualizedFileTree
-            nodes={filteredFiles}
-            selectedFile={activeFile}
-            onFileSelect={handleFileSelect}
-            onToggleFolder={toggleFolder}
-            onStartRename={() => { }}
-            onAddNewItem={addNewItem}
-            onDeleteItem={deleteItem}
-          />
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-400"></div>
+            </div>
+          ) : (
+            <VirtualizedFileTree
+              nodes={filteredFiles}
+              selectedFile={activeFile}
+              onFileSelect={handleFileSelect}
+              onToggleFolder={toggleFolder}
+              onAddNewItem={addNewItem}
+              onDeleteItem={deleteItem}
+            />
+          )}
         </div>
 
         {/* Información del usuario en el sidebar */}
@@ -1429,7 +1549,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
               </button>
               <div className="flex items-center text-sm text-gray-300 bg-gray-700/50 px-3 py-1 rounded-lg max-w-[200px] lg:max-w-none border border-white/5">
                 <FiHome className="mr-2 shrink-0" size={14} />
-                <span className="font-mono text-xs truncate">{currentPath || '/proyecto'}</span>
+                <span className="font-mono text-xs truncate">{currentPath || `/${currentProject.name}`}</span>
               </div>
             </div>
             <div className="flex items-center space-x-1 lg:space-x-2">
@@ -1437,8 +1557,8 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                 onClick={saveFile}
                 disabled={!activeTab?.isDirty}
                 className={`flex items-center px-2 lg:px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 border border-white/5 ${activeTab?.isDirty
-                    ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-green-500/25'
-                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  ? 'bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-green-500/25'
+                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                   }`}
               >
                 <FiSave className="mr-1 lg:mr-1.5 shrink-0" size={14} />
@@ -1448,10 +1568,10 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                 onClick={isRunning ? stopRun : runCode}
                 disabled={!activeFile}
                 className={`flex items-center px-2 lg:px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 border border-white/5 ${activeFile
-                    ? isRunning
-                      ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg hover:shadow-red-500/25'
-                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-blue-500/25'
-                    : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  ? isRunning
+                    ? 'bg-red-600 hover:bg-red-700 text-white shadow-lg hover:shadow-red-500/25'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-blue-500/25'
+                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
                   }`}
               >
                 <FiPlay className={`mr-1 lg:mr-1.5 shrink-0 ${isRunning ? 'rotate-90' : ''}`} size={14} />
@@ -1469,10 +1589,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
 
         {/* Barra de pestañas */}
         {tabs.length > 0 && (
-          <div
-            ref={tabsContainerRef}
-            className="bg-gray-800/60 border-b border-gray-700/80 flex overflow-x-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent"
-          >
+          <div className="bg-gray-800/60 border-b border-gray-700/80 flex overflow-x-auto scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
             <div className="flex min-w-0 flex-1">
               {tabs.map((tab) => (
                 <TabComponent
@@ -1571,65 +1688,54 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 text-left">
 
                     <div className="space-y-4">
-                      <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Inicio</h3>
+                      <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Proyecto</h3>
                       <div className="space-y-3">
-                        {[
-                          "Nuevo archivo...",
-                          "Abrir archivo...",
-                          "Abrir carpeta...",
-                          "Clonar repositorio Git...",
-                          "Conectarse a...",
-                          "Generar nueva área de trabajo..."
-                        ].map((item, index) => (
-                          <div key={index} className="flex items-center gap-3 group/item">
-                            <div className={`w-4 h-4 rounded border ${index === 1 || index === 4 || index === 5 ? 'bg-blue-500 border-blue-400' : 'border-slate-600'}`}></div>
-                            <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">{item}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Recientes</h3>
-                      <div className="space-y-3">
-                        {[
-                          { name: "pacifika-x", path: "C:/Users/Usuario/Desktop/proyectos" },
-                          { name: "vitobisco-base", path: "C:/Users/Usuario/Desktop/proyectos/vitobisco" },
-                          { name: "chocomarket-frontend", path: "C:/Users/Usuario/Desktop/proyectos..." },
-                          { name: "chocomarket-backend", path: "C:/Users/Usuario/Desktop/proyectos..." }
-                        ].map((project, index) => (
-                          <div key={index} className="group/item cursor-pointer">
-                            <div className="text-slate-200 group-hover/item:text-white transition-colors font-medium text-sm">
-                              {project.name}
-                            </div>
-                            <div className="text-slate-500 text-xs truncate group-hover/item:text-slate-300 transition-colors">
-                              {project.path}
-                            </div>
-                          </div>
-                        ))}
-                        <div className="text-blue-400 text-sm cursor-pointer hover:text-blue-300 transition-colors">
-                          Más...
+                        <div className="flex items-center gap-3 group/item">
+                          <div className="w-4 h-4 rounded border border-slate-600"></div>
+                          <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">Proyecto actual: {currentProject.name}</span>
+                        </div>
+                        <div className="flex items-center gap-3 group/item">
+                          <div className="w-4 h-4 rounded border border-slate-600"></div>
+                          <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">Abrir archivo existente</span>
+                        </div>
+                        <div className="flex items-center gap-3 group/item">
+                          <div className="w-4 h-4 rounded border border-slate-600"></div>
+                          <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">Crear nuevo archivo</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="space-y-4">
-                      <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Tutoriales</h3>
+                      <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Acciones Rápidas</h3>
                       <div className="space-y-3">
                         {[
-                          { title: "Meet BLACKBOX, the Best AI Coding Agent", completed: true },
-                          { title: "Welcome to AI Toolkit", completed: false },
-                          { title: "Modernize with Copilot", completed: true },
-                          { title: "Get Started with Java Development", completed: false },
-                          { title: "Getting Started with Container Tools", completed: false }
-                        ].map((tutorial, index) => (
+                          "Ejecutar código (Ctrl+Enter)",
+                          "Guardar archivo (Ctrl+S)",
+                          "Abrir terminal (Ctrl+`)",
+                          "Buscar en archivos (Ctrl+Shift+F)"
+                        ].map((action, index) => (
                           <div key={index} className="flex items-center gap-3 group/item">
-                            <div className={`w-4 h-4 rounded border ${tutorial.completed ? 'bg-green-500 border-green-400' : 'border-slate-600'}`}></div>
-                            <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">{tutorial.title}</span>
+                            <div className="w-4 h-4 rounded border border-slate-600"></div>
+                            <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">{action}</span>
                           </div>
                         ))}
-                        <div className="text-blue-400 text-sm cursor-pointer hover:text-blue-300 transition-colors">
-                          Más...
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <h3 className="text-slate-300 font-semibold text-lg border-b border-slate-700 pb-2">Estadísticas</h3>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3 group/item">
+                          <div className="w-4 h-4 rounded border border-slate-600"></div>
+                          <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">Archivos abiertos: {tabs.length}</span>
+                        </div>
+                        <div className="flex items-center gap-3 group/item">
+                          <div className="w-4 h-4 rounded border border-slate-600"></div>
+                          <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">Proyecto: {currentProject.name}</span>
+                        </div>
+                        <div className="flex items-center gap-3 group/item">
+                          <div className="w-4 h-4 rounded border border-slate-600"></div>
+                          <span className="text-slate-300 group-hover/item:text-white transition-colors text-sm">Usuario: {user?.name}</span>
                         </div>
                       </div>
                     </div>
@@ -1684,11 +1790,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
 
         {/* Terminal */}
         {terminalOpen && (
-          <div
-            ref={terminalRef}
-            className="bg-gray-900 border-t border-gray-700 backdrop-blur-lg transition-all duration-300 flex flex-col shrink-0"
-            style={{ height: `${terminalHeight}px` }}
-          >
+          <div className="bg-gray-900 border-t border-gray-700 backdrop-blur-lg transition-all duration-300 flex flex-col shrink-0 h-64">
             <div className="flex-1 flex flex-col min-h-0">
               <div className="flex items-center justify-between px-4 py-2 bg-gray-800/90 border-b border-gray-700/80 shrink-0">
                 <div className="flex items-center space-x-2">
@@ -1705,9 +1807,7 @@ export async function fetchData<T>(url: string): Promise<ApiResponse<T>> {
                 </div>
               </div>
 
-              <div
-                className="flex-1 p-4 overflow-y-auto text-xs lg:text-sm bg-gray-900 min-h-0 terminal-output"
-              >
+              <div className="flex-1 p-4 overflow-y-auto text-xs lg:text-sm bg-gray-900 min-h-0 terminal-output">
                 {terminalOutput.slice(-100).map((line, index) => (
                   <div key={index} className="mb-1 text-gray-200">
                     {line}
